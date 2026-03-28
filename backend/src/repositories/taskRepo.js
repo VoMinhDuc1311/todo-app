@@ -21,6 +21,20 @@ const taskRepo = {
       .populate("group", "name")
       .sort({ createdAt: -1 }),
 
+  // Lấy tất cả task liên quan đến user (cá nhân + được giao + thuộc nhóm)
+  findMyAllTasks: (userId, groupIds) =>
+    Task.find({
+      $or: [
+        { createdBy: userId },
+        { assignedTo: userId },
+        { group: { $in: groupIds } }
+      ]
+    })
+      .populate("createdBy", "name email")
+      .populate("assignedTo", "name email")
+      .populate("group", "name")
+      .sort({ createdAt: -1 }),
+
   findById: (id) =>
     Task.findById(id)
       .populate("createdBy", "name email")

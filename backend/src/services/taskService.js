@@ -46,15 +46,12 @@ const taskService = {
 
   // ⭐ FINAL VERSION
   getMyTasks: async (userId) => {
-    const personal = await taskRepo.findPersonalTasks(userId);
-    const assigned = await taskRepo.findAssignedTasks(userId);
+    const userGroups = await groupRepo.findByMember(userId);
+    const groupIds = userGroups.map((g) => g._id);
 
-    const map = new Map();
-    [...personal, ...assigned].forEach((t) =>
-      map.set(t._id.toString(), t)
-    );
+    const allTasks = await taskRepo.findMyAllTasks(userId, groupIds);
 
-    return Array.from(map.values()).map((t) => ({
+    return allTasks.map((t) => ({
       ...t._doc,
       isOverdue:
         t.dueDate &&

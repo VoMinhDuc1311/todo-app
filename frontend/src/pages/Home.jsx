@@ -7,9 +7,9 @@ import { toast } from "react-toastify";
 
 const FILTERS = [
   { key: "all",        label: "Tất cả",      icon: "📋" },
-  { key: "todo",       label: "Chờ làm",     icon: "⭕" },
-  { key: "in_progress",label: "Đang làm",    icon: "🔵" },
-  { key: "done",       label: "Xong",        icon: "✅" },
+  { key: "personal",   label: "Cá nhân",     icon: "👤" },
+  { key: "group",      label: "Nhóm",        icon: "👥" },
+  { key: "done",       label: "Hoàn thành",  icon: "✅" },
   { key: "overdue",    label: "Quá hạn",     icon: "⚠" },
 ];
 
@@ -81,30 +81,40 @@ export default function Home() {
   const handleToggle   = (updated) => handleSaved(updated);
   const handleDelete   = (id)      => setTasks((prev) => prev.filter((t) => t._id !== id));
 
+  // Filter + Search
+  const isOverdue = (t) => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "done";
+
   // Stats
   const stats = {
     total: tasks.length,
+    totalP: tasks.filter(t => t.type === "personal").length,
+    totalG: tasks.filter(t => t.type === "group").length,
     todo:  tasks.filter((t) => t.status === "todo").length,
+    todoP: tasks.filter(t => t.status === "todo" && t.type === "personal").length,
+    todoG: tasks.filter(t => t.status === "todo" && t.type === "group").length,
     doing: tasks.filter((t) => t.status === "in_progress").length,
+    doingP: tasks.filter((t) => t.status === "in_progress" && t.type === "personal").length,
+    doingG: tasks.filter((t) => t.status === "in_progress" && t.type === "group").length,
     done:  tasks.filter((t) => t.status === "done").length,
-    overdue: tasks.filter(
-      (t) => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "done"
-    ).length,
+    doneP: tasks.filter((t) => t.status === "done" && t.type === "personal").length,
+    doneG: tasks.filter((t) => t.status === "done" && t.type === "group").length,
+    overdue: tasks.filter(isOverdue).length,
   };
-
-  // Filter + Search
-  const isOverdue = (t) => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "done";
 
   let displayed = tasks.filter((t) => {
     if (filter === "all")     return true;
     if (filter === "overdue") return isOverdue(t);
-    return t.status === filter;
+    if (filter === "done")    return t.status === "done";
+    if (filter === "personal") return t.type === "personal";
+    if (filter === "group")   return t.type === "group";
+    return true;
   });
 
   if (search.trim()) {
     displayed = displayed.filter((t) =>
       t.title.toLowerCase().includes(search.toLowerCase()) ||
-      t.description?.toLowerCase().includes(search.toLowerCase())
+      t.description?.toLowerCase().includes(search.toLowerCase()) ||
+      t.group?.name?.toLowerCase().includes(search.toLowerCase())
     );
   }
 
@@ -123,10 +133,10 @@ export default function Home() {
   });
 
   const STAT_CARDS = [
-    { label: "Tổng Task",    value: stats.total,   icon: "📋", color: "#6366f1", bg: "#eef2ff" },
-    { label: "Chờ làm",      value: stats.todo,    icon: "⭕", color: "#64748b", bg: "#f1f5f9" },
-    { label: "Đang làm",     value: stats.doing,   icon: "🔵", color: "#2563eb", bg: "#dbeafe" },
-    { label: "Hoàn thành",   value: stats.done,    icon: "✅", color: "#10b981", bg: "#d1fae5" },
+    { label: "Tổng Task",    value: stats.total, split: `(${stats.totalP} Cá nhân, ${stats.totalG} Nhóm)`, icon: "📋", textColor: "#fff", bg: "linear-gradient(135deg, #a855f7, #6b21a8)" },
+    { label: "Chờ làm",      value: stats.todo,  split: `(${stats.todoP} Cá nhân, ${stats.todoG} Nhóm)`, icon: "⭕", textColor: "#64748b", bg: "linear-gradient(135deg, #f8fafc, #f1f5f9)", color: "#64748b" },
+    { label: "Đang làm",     value: stats.doing, split: `(${stats.doingP} Cá nhân, ${stats.doingG} Nhóm)`, icon: "🔵", textColor: "#fff", bg: "linear-gradient(135deg, #3b82f6, #1d4ed8)" },
+    { label: "Hoàn thành",   value: stats.done,  split: `(${stats.doneP} Cá nhân, ${stats.doneG} Nhóm)`, icon: "✅", textColor: "#fff", bg: "linear-gradient(135deg, #10b981, #047857)" },
   ];
 
   return (
@@ -156,10 +166,10 @@ export default function Home() {
         {STAT_CARDS.map((s) => (
           <div
             key={s.label}
-            className="card"
+            className="card card-elevated"
             style={{
               background: s.bg,
-              border: `1px solid ${s.color}22`,
+              border: s.color ? `1px solid ${s.color}22` : "none",
               cursor: "pointer",
               textAlign: "center",
               padding: "20px 16px",
@@ -169,12 +179,15 @@ export default function Home() {
               if (map[s.label]) setFilter(map[s.label]);
             }}
           >
-            <div style={{ fontSize: 28, marginBottom: 6 }}>{s.icon}</div>
-            <div style={{ fontSize: 32, fontWeight: 800, color: s.color, lineHeight: 1 }}>
+            <div style={{ fontSize: 28, marginBottom: 6, filter: s.textColor === "#fff" ? "drop-shadow(0 2px 4px rgba(0,0,0,0.2))" : "none" }}>{s.icon}</div>
+            <div style={{ fontSize: 32, fontWeight: 800, color: s.textColor, lineHeight: 1 }}>
               {s.value}
             </div>
-            <div style={{ fontSize: 12, color: "#64748b", marginTop: 4, fontWeight: 600 }}>
+            <div style={{ fontSize: 13, color: s.textColor === "#fff" ? "rgba(255,255,255,0.9)" : s.color, marginTop: 4, fontWeight: 600 }}>
               {s.label}
+            </div>
+            <div style={{ fontSize: 11, color: s.textColor === "#fff" ? "rgba(255,255,255,0.7)" : "#94a3b8", marginTop: 4 }}>
+              {s.split}
             </div>
           </div>
         ))}
@@ -267,8 +280,8 @@ export default function Home() {
                 fontSize: 11,
                 fontWeight: 700,
               }}>
-                {f.key === "todo" ? stats.todo :
-                 f.key === "in_progress" ? stats.doing :
+                {f.key === "personal" ? stats.totalP :
+                 f.key === "group" ? stats.totalG :
                  f.key === "done" ? stats.done :
                  f.key === "overdue" ? stats.overdue : ""}
               </span>
@@ -286,7 +299,7 @@ export default function Home() {
           <h3>
             {search ? "Không tìm thấy task phù hợp" :
              filter === "done" ? "Chưa có task nào hoàn thành" :
-             "Chưa có task nào"}
+             "Bạn chưa có task cá nhân hoặc nhóm"}
           </h3>
           <p>
             {search ? `Không có task nào chứa "${search}"` :
