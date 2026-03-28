@@ -30,6 +30,7 @@ export default function TaskCard({ task, onToggle, onEdit, onDelete, currentUser
   const sm    = STATUS_META[task.status]   || STATUS_META.todo;
   const pm    = PRIORITY_META[task.priority] || PRIORITY_META.medium;
   const isDone = task.status === "done";
+  const isGroupTask = task.type === "group";
 
   const handleToggle = async () => {
     if (toggling) return;
@@ -65,8 +66,8 @@ export default function TaskCard({ task, onToggle, onEdit, onDelete, currentUser
       style={{
         ...cardStyle,
         opacity: isDone ? 0.7 : 1,
-        borderLeft: `4px solid ${pm.color}`,
-        borderTop: isOverdue ? "1px solid #fca5a5" : "1px solid #e2e8f0",
+        borderLeft: isOverdue ? "none" : `4px solid ${pm.color}`,
+        border: isOverdue ? "2px solid #ef4444" : "1px solid #e2e8f0",
         background: isOverdue ? "#fff7f7" : "#fff",
       }}
     >
@@ -87,15 +88,26 @@ export default function TaskCard({ task, onToggle, onEdit, onDelete, currentUser
             {task.title}
           </p>
 
-          {/* Creator */}
-          <p style={{ fontSize: 11, color: "#94a3b8" }}>
-            👤 {task.createdBy?.name}
-            {task.group?.name && <span> • 👥 {task.group.name}</span>}
-          </p>
+          {/* Creator & Group */}
+          <div style={{ fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+            <div className="avatar avatar-sm" style={{ width: 22, height: 22, fontSize: 10, background: `hsl(${hashCode(task.createdBy?.name) % 360},60%,55%)` }} data-tooltip="Người tạo">
+              {task.createdBy?.name?.charAt(0)?.toUpperCase()}
+            </div>
+            <span>{task.createdBy?.name}</span>
+            {task.group?.name && (
+              <>
+                <span style={{ color: "#cbd5e1" }}>•</span>
+                <span style={{ fontWeight: 600, color: "#475569" }} data-tooltip="Tên nhóm">👥 {task.group.name}</span>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Badges */}
         <div style={styles.badges}>
+          <span className="badge" style={{ background: isGroupTask ? "#f3e8ff" : "#f1f5f9", color: isGroupTask ? "#9333ea" : "#475569" }}>
+            {isGroupTask ? "👥 Nhóm" : "👤 Cá nhân"}
+          </span>
           <span className={`badge ${sm.cls}`}>
             {sm.icon} {sm.label}
           </span>
