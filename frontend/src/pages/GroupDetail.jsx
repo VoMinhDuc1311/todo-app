@@ -264,7 +264,7 @@ export default function GroupDetail() {
 
             {filteredTasks.length === 0 ? (
               <div className="text-center py-20 bg-white/50 backdrop-blur-md rounded-2xl border border-white flex justify-center items-center shadow-sm">
-                <p className="text-gray-400 text-sm font-medium">No tasks found.</p>
+                <p className="text-gray-400 text-sm font-medium">Chưa có đầu việc nào. Hãy thêm Task mới!</p>
               </div>
             ) : (
               <div className="grid gap-4">
