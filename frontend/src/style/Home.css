@@ -1,0 +1,347 @@
+.home-page-wrap {
+  display: grid;
+  gap: 16px;
+}
+
+.home-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #eef2ff, #f8fafc);
+  border: 1px solid #e2e8f0;
+}
+
+.home-create-btn {
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.2);
+}
+
+.home-kpi-card {
+  border: none;
+  text-align: center;
+  padding: 18px 14px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.home-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(2, 6, 23, 0.12);
+}
+
+.home-kpi-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+.home-kpi-value {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+}
+.home-kpi-label {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.home-kpi-split {
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.home-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 12px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+}
+
+.home-sort-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.home-sort-label {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 600;
+}
+.home-sort-select {
+  width: auto;
+  padding: 8px 28px 8px 12px;
+}
+
+.home-suggestion-panel {
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.home-list-panel {
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 14px;
+}
+
+.home-result-text {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.home-filter-count {
+  margin-left: 6px;
+  background: #e2e8f0;
+  color: #64748b;
+  padding: 1px 7px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.filter-tab.active .home-filter-count {
+  background: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+
+.home-overdue-warning {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #7f1d1d;
+}
+
+.home-link-btn {
+  background: none;
+  border: none;
+  color: #7f1d1d;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: inherit;
+  padding: 0;
+}
+
+@media (max-width: 768px) {
+  .home-kpi-value {
+    font-size: 26px;
+  }
+}
+
+/* ===== Group grid + card ===== */
+.group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 18px;
+}
+
+.group-card {
+  padding: 0 16px 16px;
+  overflow: hidden;
+  cursor: default;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.group-card:hover {
+  transform: translateY(-2px);
+}
+
+.group-banner {
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0 16px;
+  margin: 0 -16px 0;
+  border-radius: 10px 10px 0 0;
+}
+
+.group-banner-icon {
+  font-size: 40px;
+  opacity: 0.9;
+}
+
+.group-owner-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 99px;
+  backdrop-filter: blur(4px);
+}
+
+.group-body {
+  padding-top: 16px;
+}
+
+.group-name {
+  font-weight: 700;
+  font-size: 16px;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.group-description {
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+
+.group-members-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.group-members-count {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.group-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.group-detail-btn {
+  flex: 1;
+  justify-content: center;
+}
+
+/* ===== Gradient variants ===== */
+.group-gradient-0 {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+}
+.group-gradient-1 {
+  background: linear-gradient(135deg, #06b6d4, #3b82f6);
+}
+.group-gradient-2 {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+.group-gradient-3 {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+}
+.group-gradient-4 {
+  background: linear-gradient(135deg, #ec4899, #8b5cf6);
+}
+.group-gradient-5 {
+  background: linear-gradient(135deg, #14b8a6, #0ea5e9);
+}
+
+.group-member-avatar-more {
+  background: #94a3b8;
+}
+
+/* ===== Create modal ===== */
+.group-create-modal {
+  max-width: 440px;
+}
+
+.group-create-subtitle {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.group-create-modal .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.group-create-modal .form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.group-create-modal .form-group input,
+.group-create-modal .form-group textarea {
+  width: 100%;
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #0f172a;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.group-create-modal .form-group input::placeholder,
+.group-create-modal .form-group textarea::placeholder {
+  color: #94a3b8;
+}
+
+.group-create-modal .form-group input:focus,
+.group-create-modal .form-group textarea:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.group-create-modal .form-group textarea {
+  resize: vertical;
+  min-height: 96px;
+}
+
+.group-create-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/* ===== Skeleton ===== */
+.group-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.group-skeleton-card {
+  padding: 16px;
+}
+
+.group-skeleton-banner {
+  height: 90px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.group-skeleton-line-1 {
+  height: 16px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  width: 70%;
+}
+
+.group-skeleton-line-2 {
+  height: 13px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.group-skeleton-btn {
+  height: 36px;
+  border-radius: 8px;
+}
