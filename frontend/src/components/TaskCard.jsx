@@ -41,7 +41,7 @@ export default function TaskCard({ task, onToggle, onEdit, onDelete }) {
       onToggle(res.data.data);
       const s = res.data.data.status;
       toast.success(
-        s === "done" ? "✅ Đã đánh dấu hoàn thành!" :
+        s === "done" ? "Đã đánh dấu hoàn thành!" :
           s === "in_progress" ? "▶ Đã bắt đầu làm" : "↩ Đã mở lại task"
       );
     } catch (err) {

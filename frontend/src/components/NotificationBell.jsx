@@ -1,5 +1,6 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import api from "../api/axios";
+import socket from "../config/socket";
 import { toast } from "react-toastify";
 
 export default function NotificationBell() {
@@ -22,6 +23,32 @@ export default function NotificationBell() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // ─── Socket listeners ────────────────────────────────────────────────────────
+  const handleNewNotification = useCallback((noti) => {
+    setNotis((prev) => {
+      // Tránh duplicate nếu polling cũng fetch về
+      if (prev.find((n) => n._id === noti._id)) return prev;
+      return [noti, ...prev];
+    });
+  }, []);
+
+  const handleNewInvite = useCallback((invite) => {
+    setInvites((prev) => {
+      if (prev.find((i) => i._id === invite._id)) return prev;
+      return [invite, ...prev];
+    });
+  }, []);
+
+  useEffect(() => {
+    socket.on("notification:new", handleNewNotification);
+    socket.on("invite:new", handleNewInvite);
+    return () => {
+      socket.off("notification:new", handleNewNotification);
+      socket.off("invite:new", handleNewInvite);
+    };
+  }, [handleNewNotification, handleNewInvite]);
+  // ────────────────────────────────────────────────────────────────────────────
 
   const fetchAll = async () => {
     try {
@@ -56,7 +83,7 @@ export default function NotificationBell() {
     try {
       await api.post(`/invites/${id}/accept`);
       setInvites((prev) => prev.filter((i) => i._id !== id));
-      toast.success("✅ Đã tham gia nhóm!");
+      toast.success("Đã tham gia nhóm!");
     } catch (e) {
       toast.error(e.response?.data?.message || "Lỗi tham gia");
     } finally {
@@ -115,7 +142,7 @@ export default function NotificationBell() {
             {combined.length === 0 ? (
               <div className="text-center py-10 flex flex-col items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M5 13l4 4L19 7" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M5 13l4 4L19 7" />
                 </svg>
                 <p className="text-sm text-gray-400 font-medium">Bạn đã xem hết thông báo</p>
               </div>
@@ -130,9 +157,9 @@ export default function NotificationBell() {
                       <div className="w-2 h-2 rounded-full bg-indigo-500 absolute left-4 top-5 shrink-0"></div>
                       <div className="flex-1 min-w-0 pl-4">
                         <p className="text-sm text-gray-800 leading-snug">
-                          <span className="font-semibold">{item.senderId?.name}</span> mời bạn vào <span className="font-semibold text-indigo-600">{item.groupId?.name}</span>
+                          <span className="font-semibold">{item.senderId?.name}</span> mời bạn vào{" "}
+                          <span className="font-semibold text-indigo-600">{item.groupId?.name}</span>
                         </p>
-                        
                         <div className="flex gap-2 mt-3">
                           <button
                             onClick={() => handleAcceptInvite(item._id)}
@@ -157,10 +184,12 @@ export default function NotificationBell() {
                     <div
                       key={`not-${item._id}`}
                       onClick={() => !item.isRead && markRead(item._id)}
-                      className={`p-4 border-b border-slate-50 flex gap-3 cursor-pointer transition-colors ${item.isRead ? 'bg-transparent hover:bg-slate-50' : 'bg-indigo-50/50 hover:bg-indigo-50'}`}
+                      className={`p-4 border-b border-slate-50 flex gap-3 cursor-pointer transition-colors ${
+                        item.isRead ? "bg-transparent hover:bg-slate-50" : "bg-indigo-50/50 hover:bg-indigo-50"
+                      }`}
                     >
                       {!item.isRead && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0 mt-1.5"></div>}
-                      <p className={`text-sm leading-snug ${item.isRead ? 'text-gray-500 pl-4' : 'text-gray-800 font-medium pl-1'}`}>
+                      <p className={`text-sm leading-snug ${item.isRead ? "text-gray-500 pl-4" : "text-gray-800 font-medium pl-1"}`}>
                         {item.message}
                       </p>
                     </div>

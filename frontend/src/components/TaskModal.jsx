@@ -60,13 +60,13 @@ export default function TaskModal({ onClose, onSaved, task = null, groupId = nul
       let res;
       if (task) {
         res = await api.put(`/tasks/${task._id}`, form);
-        toast.success("✅ Đã cập nhật task");
+        toast.success("Đã cập nhật task");
       } else if (groupId) {
         res = await api.post(`/tasks/group/${groupId}`, form);
-        toast.success("✅ Đã thêm task nhóm");
+        toast.success("Đã thêm task nhóm");
       } else {
         res = await api.post("/tasks/personal", form);
-        toast.success("✅ Đã thêm task");
+        toast.success("Đã thêm task");
       }
 
       onSaved(res.data.data);

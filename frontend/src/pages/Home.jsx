@@ -1,10 +1,10 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import api from "../api/axios";
-import TaskCard from "../components/TaskCard";
 import TaskBoard from "../components/TaskBoard";
 import TaskModal from "../components/TaskModal";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
+import socket from "../config/socket";
 import "../style/Home.css";
 
 const FILTERS = [
@@ -35,33 +35,7 @@ export default function Home() {
   const [editTask, setEditTask] = useState(null);
   const searchRef = useRef(null);
 
-  useEffect(() => {
-    fetchTasks();
-  }, []);
-
-  useEffect(() => {
-    const h = (e) => {
-      if (searchRef.current && !searchRef.current.contains(e.target)) {
-        setShowSuggestions(false);
-      }
-    };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, []);
-
-  useEffect(() => {
-    if (!search.trim()) {
-      setSuggestions([]);
-      return;
-    }
-
-    const next = tasks
-      .filter((t) => t.title.toLowerCase().includes(search.toLowerCase()))
-      .slice(0, 6);
-
-    setSuggestions(next);
-  }, [search, tasks]);
-
+  // ─── Fetch ───────────────────────────────────────────────────────────────────
   const fetchTasks = async () => {
     setLoading(true);
     try {
@@ -74,6 +48,58 @@ export default function Home() {
     }
   };
 
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  // ─── Click outside search ─────────────────────────────────────────────────
+  useEffect(() => {
+    const h = (e) => {
+      if (searchRef.current && !searchRef.current.contains(e.target))
+        setShowSuggestions(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  // ─── Search suggestions ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (!search.trim()) { setSuggestions([]); return; }
+    setSuggestions(
+      tasks.filter((t) => t.title.toLowerCase().includes(search.toLowerCase())).slice(0, 6)
+    );
+  }, [search, tasks]);
+
+  // ─── Socket ───────────────────────────────────────────────────────────────
+  const handleTaskNew = useCallback((task) => {
+    setTasks((prev) => prev.find((t) => t._id === task._id) ? prev : [task, ...prev]);
+  }, []);
+
+  const handleTaskUpdated = useCallback((updated) => {
+    setTasks((prev) => prev.map((t) => t._id === updated._id ? updated : t));
+  }, []);
+
+  const handleTaskDeleted = useCallback((taskId) => {
+    setTasks((prev) => prev.filter((t) => t._id !== taskId));
+  }, []);
+
+  useEffect(() => {
+    if (!user?._id) return;
+
+    socket.emit("join", user._id);
+    socket.on("task:new", handleTaskNew);
+    socket.on("task:updated", handleTaskUpdated);
+    socket.on("task:deleted", handleTaskDeleted);
+
+    return () => {
+      socket.off("task:new", handleTaskNew);
+      socket.off("task:updated", handleTaskUpdated);
+      socket.off("task:deleted", handleTaskDeleted);
+    };
+  }, [user?._id, handleTaskNew, handleTaskUpdated, handleTaskDeleted]);
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // ─── Handlers ─────────────────────────────────────────────────────────────
   const handleSaved = (saved) => {
     setTasks((prev) => {
       const idx = prev.findIndex((t) => t._id === saved._id);
@@ -92,40 +118,43 @@ export default function Home() {
       await api.patch(`/tasks/${taskId}/status`, { status: newStatus });
     } catch (e) {
       toast.error(e.response?.data?.message || "Lỗi di chuyển task!");
-      fetchTasks(); 
+      fetchTasks();
     }
   };
 
   const handleToggle = (updated) => handleSaved(updated);
   const handleDelete = (id) => setTasks((prev) => prev.filter((t) => t._id !== id));
 
+  // ─── Computed ─────────────────────────────────────────────────────────────
   const isOverdue = (t) =>
     t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "done";
 
   const stats = {
-    total: tasks.length,
-    totalP: tasks.filter((t) => t.type === "personal").length,
-    totalG: tasks.filter((t) => t.type === "group").length,
-    todo: tasks.filter((t) => t.status === "todo").length,
-    todoP: tasks.filter((t) => t.status === "todo" && t.type === "personal").length,
-    todoG: tasks.filter((t) => t.status === "todo" && t.type === "group").length,
-    doing: tasks.filter((t) => t.status === "in_progress").length,
-    doingP: tasks.filter((t) => t.status === "in_progress" && t.type === "personal").length,
-    doingG: tasks.filter((t) => t.status === "in_progress" && t.type === "group").length,
-    done: tasks.filter((t) => t.status === "done").length,
-    doneP: tasks.filter((t) => t.status === "done" && t.type === "personal").length,
-    doneG: tasks.filter((t) => t.status === "done" && t.type === "group").length,
+    total:   tasks.length,
+    totalP:  tasks.filter((t) => t.type === "personal").length,
+    totalG:  tasks.filter((t) => t.type === "group").length,
+    todo:    tasks.filter((t) => t.status === "todo").length,
+    todoP:   tasks.filter((t) => t.status === "todo" && t.type === "personal").length,
+    todoG:   tasks.filter((t) => t.status === "todo" && t.type === "group").length,
+    doing:   tasks.filter((t) => t.status === "in_progress").length,
+    doingP:  tasks.filter((t) => t.status === "in_progress" && t.type === "personal").length,
+    doingG:  tasks.filter((t) => t.status === "in_progress" && t.type === "group").length,
+    done:    tasks.filter((t) => t.status === "done").length,
+    doneP:   tasks.filter((t) => t.status === "done" && t.type === "personal").length,
+    doneG:   tasks.filter((t) => t.status === "done" && t.type === "group").length,
     overdue: tasks.filter(isOverdue).length,
   };
 
+  const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
+
   let displayed = tasks.filter((t) => {
-    if (filter === "all") return true;
-    if (filter === "todo") return t.status === "todo";
+    if (filter === "all")         return true;
+    if (filter === "todo")        return t.status === "todo";
     if (filter === "in_progress") return t.status === "in_progress";
-    if (filter === "done") return t.status === "done";
-    if (filter === "overdue") return isOverdue(t);
-    if (filter === "personal") return t.type === "personal";
-    if (filter === "group") return t.type === "group";
+    if (filter === "done")        return t.status === "done";
+    if (filter === "overdue")     return isOverdue(t);
+    if (filter === "personal")    return t.type === "personal";
+    if (filter === "group")       return t.type === "group";
     return true;
   });
 
@@ -139,13 +168,10 @@ export default function Home() {
     );
   }
 
-  const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
   displayed = [...displayed].sort((a, b) => {
-    if (sort === "newest") return new Date(b.createdAt) - new Date(a.createdAt);
-    if (sort === "oldest") return new Date(a.createdAt) - new Date(b.createdAt);
-    if (sort === "priority") {
-      return (PRIORITY_ORDER[a.priority] ?? 1) - (PRIORITY_ORDER[b.priority] ?? 1);
-    }
+    if (sort === "newest")   return new Date(b.createdAt) - new Date(a.createdAt);
+    if (sort === "oldest")   return new Date(a.createdAt) - new Date(b.createdAt);
+    if (sort === "priority") return (PRIORITY_ORDER[a.priority] ?? 1) - (PRIORITY_ORDER[b.priority] ?? 1);
     if (sort === "dueDate") {
       if (!a.dueDate) return 1;
       if (!b.dueDate) return -1;
@@ -155,48 +181,23 @@ export default function Home() {
   });
 
   const STAT_CARDS = [
-    {
-      label: "Tổng Task",
-      value: stats.total,
-      split: `(${stats.totalP} Cá nhân, ${stats.totalG} Nhóm)`,
-      icon: "📋",
-      textColor: "#fff",
-      bg: "linear-gradient(135deg, #a855f7, #6b21a8)",
-    },
-    {
-      label: "Chờ làm",
-      value: stats.todo,
-      split: `(${stats.todoP} Cá nhân, ${stats.todoG} Nhóm)`,
-      icon: "⭕",
-      textColor: "#64748b",
-      bg: "linear-gradient(135deg, #f8fafc, #f1f5f9)",
-    },
-    {
-      label: "Đang làm",
-      value: stats.doing,
-      split: `(${stats.doingP} Cá nhân, ${stats.doingG} Nhóm)`,
-      icon: "🔵",
-      textColor: "#fff",
-      bg: "linear-gradient(135deg, #3b82f6, #1d4ed8)",
-    },
-    {
-      label: "Hoàn thành",
-      value: stats.done,
-      split: `(${stats.doneP} Cá nhân, ${stats.doneG} Nhóm)`,
-      icon: "✅",
-      textColor: "#fff",
-      bg: "linear-gradient(135deg, #10b981, #047857)",
-    },
+    { label: "Tổng Task",    value: stats.total,  split: `(${stats.totalP} Cá nhân, ${stats.totalG} Nhóm)`,  icon: "📋", textColor: "#fff",     bg: "linear-gradient(135deg, #a855f7, #6b21a8)" },
+    { label: "Chờ làm",      value: stats.todo,   split: `(${stats.todoP} Cá nhân, ${stats.todoG} Nhóm)`,    icon: "⭕", textColor: "#64748b",  bg: "linear-gradient(135deg, #f8fafc, #f1f5f9)" },
+    { label: "Đang làm",     value: stats.doing,  split: `(${stats.doingP} Cá nhân, ${stats.doingG} Nhóm)`,  icon: "🔵", textColor: "#fff",     bg: "linear-gradient(135deg, #3b82f6, #1d4ed8)" },
+    { label: "Hoàn thành",   value: stats.done,   split: `(${stats.doneP} Cá nhân, ${stats.doneG} Nhóm)`,    icon: "✅", textColor: "#fff",     bg: "linear-gradient(135deg, #10b981, #047857)" },
   ];
 
   const getFilterCount = (key) => {
     if (key === "personal") return stats.totalP;
-    if (key === "group") return stats.totalG;
-    if (key === "done") return stats.done;
-    if (key === "overdue") return stats.overdue;
+    if (key === "group")    return stats.totalG;
+    if (key === "done")     return stats.done;
+    if (key === "overdue")  return stats.overdue;
     return "";
   };
 
+  const FILTER_MAP = { "Tổng Task": "all", "Chờ làm": "todo", "Đang làm": "in_progress", "Hoàn thành": "done" };
+
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="page home-page-wrap">
       <div className="home-hero">
@@ -212,14 +213,7 @@ export default function Home() {
             hôm nay
           </p>
         </div>
-
-        <button
-          onClick={() => {
-            setEditTask(null);
-            setShowModal(true);
-          }}
-          className="btn btn-primary home-create-btn"
-        >
+        <button onClick={() => { setEditTask(null); setShowModal(true); }} className="btn btn-primary home-create-btn">
           ➕ Tạo task mới
         </button>
       </div>
@@ -231,30 +225,12 @@ export default function Home() {
             type="button"
             className="card card-elevated home-kpi-card"
             style={{ background: s.bg, color: s.textColor }}
-            onClick={() => {
-              const map = {
-                "Tổng Task": "all",
-                "Chờ làm": "todo",
-                "Đang làm": "in_progress",
-                "Hoàn thành": "done",
-              };
-              if (map[s.label]) setFilter(map[s.label]);
-            }}
+            onClick={() => { if (FILTER_MAP[s.label]) setFilter(FILTER_MAP[s.label]); }}
           >
             <div className="home-kpi-icon">{s.icon}</div>
             <div className="home-kpi-value">{s.value}</div>
-            <div
-              className="home-kpi-label"
-              style={{ color: s.textColor === "#fff" ? "rgba(255,255,255,.92)" : "#334155" }}
-            >
-              {s.label}
-            </div>
-            <div
-              className="home-kpi-split"
-              style={{ color: s.textColor === "#fff" ? "rgba(255,255,255,.75)" : "#64748b" }}
-            >
-              {s.split}
-            </div>
+            <div className="home-kpi-label" style={{ color: s.textColor === "#fff" ? "rgba(255,255,255,.92)" : "#334155" }}>{s.label}</div>
+            <div className="home-kpi-split"  style={{ color: s.textColor === "#fff" ? "rgba(255,255,255,.75)" : "#64748b"  }}>{s.split}</div>
           </button>
         ))}
       </div>
@@ -264,9 +240,7 @@ export default function Home() {
           <span style={{ fontSize: 20 }}>⚠</span>
           <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>
             Bạn có <strong>{stats.overdue} task quá hạn!</strong>{" "}
-            <button onClick={() => setFilter("overdue")} className="home-link-btn">
-              Xem ngay
-            </button>
+            <button onClick={() => setFilter("overdue")} className="home-link-btn">Xem ngay</button>
           </p>
         </div>
       )}
@@ -280,34 +254,19 @@ export default function Home() {
               type="search"
               placeholder="Tìm kiếm task..."
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setShowSuggestions(true);
-              }}
+              onChange={(e) => { setSearch(e.target.value); setShowSuggestions(true); }}
               onFocus={() => setShowSuggestions(true)}
             />
           </div>
-
           {showSuggestions && suggestions.length > 0 && (
             <div className="search-suggestions home-suggestion-panel">
               {suggestions.map((s) => (
-                <div
-                  key={s._id}
-                  className="search-suggestions-item"
-                  onClick={() => {
-                    setSearch(s.title);
-                    setShowSuggestions(false);
-                  }}
-                >
+                <div key={s._id} className="search-suggestions-item" onClick={() => { setSearch(s.title); setShowSuggestions(false); }}>
                   <span style={{ fontSize: 14 }}>
                     {s.status === "done" ? "✅" : s.status === "in_progress" ? "🔵" : "⭕"}
                   </span>
                   <span style={{ fontWeight: 500 }}>{s.title}</span>
-                  {s.priority === "high" && (
-                    <span className="badge badge-high" style={{ marginLeft: "auto" }}>
-                      Cao
-                    </span>
-                  )}
+                  {s.priority === "high" && <span className="badge badge-high" style={{ marginLeft: "auto" }}>Cao</span>}
                 </div>
               ))}
             </div>
@@ -316,27 +275,15 @@ export default function Home() {
 
         <div className="home-sort-wrap">
           <span className="home-sort-label">Sắp xếp:</span>
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            className="home-sort-select"
-          >
-            {SORTS.map((s) => (
-              <option key={s.key} value={s.key}>
-                {s.label}
-              </option>
-            ))}
+          <select value={sort} onChange={(e) => setSort(e.target.value)} className="home-sort-select">
+            {SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
           </select>
         </div>
       </div>
 
       <div className="filter-tabs" style={{ marginBottom: 14 }}>
         {FILTERS.map((f) => (
-          <button
-            key={f.key}
-            className={`filter-tab ${filter === f.key ? "active" : ""}`}
-            onClick={() => setFilter(f.key)}
-          >
+          <button key={f.key} className={`filter-tab ${filter === f.key ? "active" : ""}`} onClick={() => setFilter(f.key)}>
             {f.icon} {f.label}
             {f.key !== "all" && <span className="home-filter-count">{getFilterCount(f.key)}</span>}
           </button>
@@ -350,46 +297,27 @@ export default function Home() {
           <div className="empty-state">
             <span className="empty-icon">{search ? "🔍" : filter === "done" ? "🏆" : "📭"}</span>
             <h3>
-              {search
-                ? "Không tìm thấy task phù hợp"
-                : filter === "done"
-                ? "Chưa có task nào hoàn thành"
-                : "Bạn chưa có task cá nhân hoặc nhóm"}
+              {search ? "Không tìm thấy task phù hợp" : filter === "done" ? "Chưa có task nào hoàn thành" : "Bạn chưa có task cá nhân hoặc nhóm"}
             </h3>
             <p>
-              {search
-                ? `Không có task nào chứa "${search}"`
-                : filter === "all"
-                ? "Tạo task đầu tiên của bạn để bắt đầu!"
-                : "Không có task nào trong danh mục này"}
+              {search ? `Không có task nào chứa "${search}"` : filter === "all" ? "Tạo task đầu tiên của bạn để bắt đầu!" : "Không có task nào trong danh mục này"}
             </p>
             {filter === "all" && !search && (
-              <button
-                onClick={() => {
-                  setEditTask(null);
-                  setShowModal(true);
-                }}
-                className="btn btn-primary"
-              >
+              <button onClick={() => { setEditTask(null); setShowModal(true); }} className="btn btn-primary">
                 ➕ Tạo task đầu tiên
               </button>
             )}
           </div>
         ) : (
           <>
-            <p className="home-result-text">
-              Hiển thị {displayed.length} / {tasks.length} task
-            </p>
-            <TaskBoard 
-               tasks={displayed}
-               currentUserId={user?._id}
-               onStatusChange={handleStatusChange}
-               onEdit={(t) => {
-                 setEditTask(t);
-                 setShowModal(true);
-               }}
-               onDelete={handleDelete}
-               onToggle={handleToggle}
+            <p className="home-result-text">Hiển thị {displayed.length} / {tasks.length} task</p>
+            <TaskBoard
+              tasks={displayed}
+              currentUserId={user?._id}
+              onStatusChange={handleStatusChange}
+              onEdit={(t) => { setEditTask(t); setShowModal(true); }}
+              onDelete={handleDelete}
+              onToggle={handleToggle}
             />
           </>
         )}
@@ -398,10 +326,7 @@ export default function Home() {
       {showModal && (
         <TaskModal
           task={editTask}
-          onClose={() => {
-            setShowModal(false);
-            setEditTask(null);
-          }}
+          onClose={() => { setShowModal(false); setEditTask(null); }}
           onSaved={handleSaved}
         />
       )}

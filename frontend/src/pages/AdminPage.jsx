@@ -59,7 +59,7 @@ export default function AdminPage() {
     try {
       const res = await api.patch(`/admin/users/${user._id}/role`, { role: newRole });
       setUsers((prev) => prev.map((u) => u._id === user._id ? res.data.data : u));
-      toast.success(`✅ Đã đổi role → ${newRole}`);
+      toast.success(`Đã đổi role → ${newRole}`);
     } catch (e) { toast.error(e.response?.data?.message || "Lỗi đổi role"); }
   };
 
