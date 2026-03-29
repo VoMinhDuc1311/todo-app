@@ -17,6 +17,7 @@ router.get("/group/:groupId", taskController.getGroupTasks);
 // Thao tác theo id
 router.put("/:id", taskController.update);
 router.patch("/:id/toggle", taskController.toggleDone);
+router.patch("/:id/status", taskController.updateStatus);
 router.patch("/:id/assign", taskController.assignTask);
 router.delete("/:id", taskController.delete);
 

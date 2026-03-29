@@ -1,5 +1,6 @@
 const groupRepo = require("../repositories/groupRepo");
 const userRepo = require("../repositories/userRepo");
+const taskRepo = require("../repositories/taskRepo");
 
 const groupService = {
   create: async (ownerId, { name, description, avatar }) => {
@@ -105,6 +106,9 @@ const groupService = {
     if (group.owner._id.toString() !== ownerId.toString()) {
       throw new Error("Chỉ leader mới được xóa nhóm");
     }
+
+    // Xóa toàn bộ task trực thuộc nhóm này
+    await taskRepo.deleteManyByGroup(groupId);
 
     return groupRepo.deleteById(groupId);
   },

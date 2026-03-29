@@ -101,6 +101,20 @@ const taskController = {
       res.status(400).json({ success: false, message: e.message });
     }
   },
+
+  // UPDATE STATUS FOR DND KANBAN
+  updateStatus: async (req, res) => {
+    try {
+      const task = await taskService.updateStatus(
+        req.user._id,
+        req.params.id,
+        req.body.status
+      );
+      res.json({ success: true, data: task });
+    } catch (e) {
+      res.status(400).json({ success: false, message: e.message });
+    }
+  },
 };
 
 module.exports = taskController;

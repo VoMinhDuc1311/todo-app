@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import api from "../api/axios";
 import TaskCard from "../components/TaskCard";
+import TaskBoard from "../components/TaskBoard";
 import TaskModal from "../components/TaskModal";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
@@ -83,6 +84,16 @@ export default function Home() {
       }
       return [saved, ...prev];
     });
+  };
+
+  const handleStatusChange = async (taskId, newStatus) => {
+    setTasks((prev) => prev.map((t) => t._id === taskId ? { ...t, status: newStatus } : t));
+    try {
+      await api.patch(`/tasks/${taskId}/status`, { status: newStatus });
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Lỗi di chuyển task!");
+      fetchTasks(); 
+    }
   };
 
   const handleToggle = (updated) => handleSaved(updated);
@@ -369,19 +380,17 @@ export default function Home() {
             <p className="home-result-text">
               Hiển thị {displayed.length} / {tasks.length} task
             </p>
-            {displayed.map((task) => (
-              <TaskCard
-                key={task._id}
-                task={task}
-                currentUserId={user?._id}
-                onToggle={handleToggle}
-                onEdit={(t) => {
-                  setEditTask(t);
-                  setShowModal(true);
-                }}
-                onDelete={handleDelete}
-              />
-            ))}
+            <TaskBoard 
+               tasks={displayed}
+               currentUserId={user?._id}
+               onStatusChange={handleStatusChange}
+               onEdit={(t) => {
+                 setEditTask(t);
+                 setShowModal(true);
+               }}
+               onDelete={handleDelete}
+               onToggle={handleToggle}
+            />
           </>
         )}
       </div>

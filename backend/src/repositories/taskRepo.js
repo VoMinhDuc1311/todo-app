@@ -63,6 +63,7 @@ const taskRepo = {
       .populate("assignedTo", "name email avatar"),
 
   deleteById: (id) => Task.findByIdAndDelete(id),
+  deleteManyByGroup: (groupId) => Task.deleteMany({ group: groupId }),
 
   // Admin: lấy tất cả task
   findAll: () =>

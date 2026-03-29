@@ -2,6 +2,22 @@ const taskRepo = require("../repositories/taskRepo");
 const groupRepo = require("../repositories/groupRepo");
 const Notification = require("../models/Notification");
 
+const ensureCanReopen = (task, newStatus, userId, group) => {
+    if (task.status === "done" && newStatus !== "done") {
+        let canReopen = false;
+        if (task.type === "group" && group) {
+            if (group.owner && group.owner._id.toString() === userId.toString()) canReopen = true;
+            const mr = group.members.find(m => m.user && m.user._id.toString() === userId.toString());
+            if (mr && (mr.role === "leader" || mr.role === "admin")) canReopen = true;
+        } else {
+            if (task.createdBy && task.createdBy._id.toString() === userId.toString()) canReopen = true;
+        }
+        if (!canReopen) {
+            throw new Error("Bạn không có quyền mở lại task đã hoàn thành. Vui lòng nhờ Leader!");
+        }
+    }
+};
+
 const taskService = {
   createPersonal: async (userId, data) => {
     return taskRepo.create({
@@ -23,12 +39,28 @@ const taskService = {
     if (member.role !== "leader")
       throw new Error("Chỉ leader mới được tạo task");
 
-    return taskRepo.create({
+    const taskData = {
       ...data,
       createdBy: userId,
-      type: "group",
       group: groupId,
-    });
+      type: "group",
+    };
+
+    const task = await taskRepo.create(taskData);
+
+    // 🏆 FEATURE 2 (CREATE)
+    if (data.assignedTo && Array.isArray(data.assignedTo) && data.assignedTo.length > 0) {
+      let groupName = group.name;
+      for (const uid of data.assignedTo) {
+         if (uid === userId.toString()) continue;
+         await Notification.create({
+            user: uid,
+            message: `📌 Bạn vừa được nhóm quản lý phân công tác vụ mới: "${data.title}" (Nhóm: ${groupName}).`
+         });
+      }
+    }
+
+    return task;
   },
 
   getGroupTasks: async (userId, groupId) => {
@@ -84,6 +116,14 @@ const taskService = {
       throw new Error("Không có quyền");
     }
 
+    if (data.status && data.status !== task.status) {
+       let group = null;
+       if (task.type === "group" && task.group) {
+          group = await groupRepo.findById(task.group._id || task.group);
+       }
+       ensureCanReopen(task, data.status, userId, group);
+    }
+
     if (data.status === "done" && task.status !== "done" && task.type === "group" && task.group) {
       const group = await groupRepo.findById(task.group._id);
       if (group) {
@@ -105,6 +145,27 @@ const taskService = {
       }
     }
 
+    // 🏆 FEATURE 2: ASSIGN TASK NOTIFICATIONS (Diff Checker)
+    if (data.assignedTo && Array.isArray(data.assignedTo)) {
+      const existingAssignees = task.assignedTo.map(u => u._id ? u._id.toString() : u.toString());
+      const newAssignees = data.assignedTo.filter(id => !existingAssignees.includes(id));
+      
+      if (newAssignees.length > 0) {
+        let groupName = "Cá nhân";
+        if (task.type === "group" && task.group) {
+           const group = await groupRepo.findById(task.group._id || task.group);
+           if (group) groupName = group.name;
+        }
+        for (const uid of newAssignees) {
+           if (uid === userId.toString()) continue; // Skip self
+           await Notification.create({
+              user: uid,
+              message: `📌 Bạn vừa được phân công một tác vụ mới: "${task.title}" (Nhóm: ${groupName}). Hãy kiểm tra ngay!`
+           });
+        }
+      }
+    }
+
     return taskRepo.updateById(taskId, data);
   },
 
@@ -123,6 +184,13 @@ const taskService = {
     if (task.status === "todo") newStatus = "in_progress";
     else if (task.status === "in_progress") newStatus = "done";
     else newStatus = "todo";
+
+    let group = null;
+    if (task.type === "group" && task.group) {
+        group = await groupRepo.findById(task.group._id || task.group);
+    }
+
+    ensureCanReopen(task, newStatus, userId, group);
 
     if (newStatus === "done" && task.type === "group" && task.group) {
       const group = await groupRepo.findById(task.group._id);
@@ -175,10 +243,61 @@ const taskService = {
 
     await Notification.create({
       user: assignedTo,
-      message: `📌 Bạn được giao task: "${task.title}"`,
+      message: `📌 Bạn được giao task: "${task.title}" (Nhóm: ${group.name})`,
     });
 
     return updated;
+  },
+
+  updateStatus: async (userId, taskId, newStatus) => {
+    const validStatuses = ["todo", "in_progress", "done"];
+    if (!validStatuses.includes(newStatus)) throw new Error("Status không hợp lệ");
+
+    const task = await taskRepo.findById(taskId);
+    if (!task) throw new Error("Task không tồn tại");
+
+    let hasPermission = false;
+    
+    // Creator is allowed
+    if (task.createdBy._id.toString() === userId.toString()) hasPermission = true;
+
+    // Assigned is allowed
+    if (task.assignedTo.some(u => u._id.toString() === userId.toString())) hasPermission = true;
+
+    // Group leader/admin is allowed
+    let group = null;
+    if (task.type === "group" && task.group) {
+       group = await groupRepo.findById(task.group._id ? task.group._id : task.group);
+       if (group) {
+          if (group.owner._id.toString() === userId.toString()) hasPermission = true;
+          const mr = group.members.find(m => m.user && m.user._id.toString() === userId.toString());
+          if (mr && (mr.role === "leader" || mr.role === "admin")) hasPermission = true;
+       }
+    }
+
+    if (!hasPermission) throw new Error("Bạn không có quyền chuyển cột task này!");
+
+    ensureCanReopen(task, newStatus, userId, group);
+
+    if (newStatus === "done" && task.status !== "done" && task.type === "group" && group) {
+       const leaders = [];
+       if (group.owner) leaders.push(group.owner._id.toString());
+       group.members.forEach(m => {
+          if (m.role === "leader" || m.role === "admin") {
+             const uid = m.user ? m.user._id.toString() : null;
+             if (uid && !leaders.includes(uid)) leaders.push(uid);
+          }
+       });
+       const notifyList = leaders.filter(id => id !== userId.toString());
+       for (const lId of notifyList) {
+          await Notification.create({
+             user: lId,
+             message: `✅ Task "${task.title}" (Nhóm: ${group.name}) đã được kéo sang cột Hoàn thành!`,
+          });
+       }
+    }
+
+    return taskRepo.updateById(taskId, { status: newStatus });
   },
 };
 
