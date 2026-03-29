@@ -3,32 +3,32 @@ import { toast } from "react-toastify";
 import api from "../api/axios";
 
 const STATUS_META = {
-  todo:        { label: "Chờ làm",    cls: "badge-todo",     icon: "⭕", next: "▶ Bắt đầu" },
-  in_progress: { label: "Đang làm",   cls: "badge-progress", icon: "🔵", next: "✓ Hoàn thành" },
-  done:        { label: "Hoàn thành", cls: "badge-done",     icon: "✅", next: "↩ Mở lại" },
+  todo: { label: "Chờ làm", cls: "badge-todo", icon: "⭕", next: "▶ Bắt đầu" },
+  in_progress: { label: "Đang làm", cls: "badge-progress", icon: "🔵", next: "✓ Hoàn thành" },
+  done: { label: "Hoàn thành", cls: "badge-done", icon: "✅", next: "↩ Mở lại" },
 };
 
 const PRIORITY_META = {
-  low:    { label: "Thấp",      cls: "badge-low",    color: "#10b981" },
+  low: { label: "Thấp", cls: "badge-low", color: "#10b981" },
   medium: { label: "Trung bình", cls: "badge-medium", color: "#f59e0b" },
-  high:   { label: "Cao",       cls: "badge-high",   color: "#ef4444" },
+  high: { label: "Cao", cls: "badge-high", color: "#ef4444" },
 };
 
 export default function TaskCard({ task, onToggle, onEdit, onDelete, currentUserId }) {
   const [toggling, setToggling] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
-  const isOwner    = task.createdBy?._id === currentUserId;
+  const isOwner = task.createdBy?._id === currentUserId;
   const isAssigned = task.assignedTo?.some((u) => u._id === currentUserId);
-  const canToggle  = isOwner || isAssigned;
+  const canToggle = isOwner || isAssigned;
 
   const isOverdue =
     task.dueDate &&
     new Date(task.dueDate) < new Date() &&
     task.status !== "done";
 
-  const sm    = STATUS_META[task.status]   || STATUS_META.todo;
-  const pm    = PRIORITY_META[task.priority] || PRIORITY_META.medium;
+  const sm = STATUS_META[task.status] || STATUS_META.todo;
+  const pm = PRIORITY_META[task.priority] || PRIORITY_META.medium;
   const isDone = task.status === "done";
   const isGroupTask = task.type === "group";
 
@@ -41,7 +41,7 @@ export default function TaskCard({ task, onToggle, onEdit, onDelete, currentUser
       const s = res.data.data.status;
       toast.success(
         s === "done" ? "✅ Đã hoàn thành!" :
-        s === "in_progress" ? "▶ Bắt đầu làm" : "↩ Đã mở lại"
+          s === "in_progress" ? "▶ Bắt đầu làm" : "↩ Đã mở lại"
       );
     } catch (e) {
       toast.error(e.response?.data?.message || "Lỗi cập nhật");
