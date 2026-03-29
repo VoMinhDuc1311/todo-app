@@ -4,7 +4,7 @@
 // =================================================
 
 // 1. Chọn database
-use TODO_MANAGEMENT;
+use todo-app;
 
 // 2. Xóa dữ liệu cũ (tuỳ chọn)
 db.users.drop();
