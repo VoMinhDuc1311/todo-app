@@ -10,6 +10,8 @@ const adminRoutes = require("./src/routes/adminRoutes");
 
 // 🔥 NEW
 const notificationRoutes = require("./src/routes/notificationRoutes");
+const userRoutes = require("./src/routes/userRoutes");
+const inviteRoutes = require("./src/routes/inviteRoutes");
 
 const app = express();
 
@@ -28,6 +30,8 @@ app.use("/api/admin", adminRoutes);
 
 // 🔥 NEW
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/invites", inviteRoutes);
 
 // Health check
 app.get("/", (req, res) => {
