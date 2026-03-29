@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
 import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
 
 const STATUS_META = {
   todo: { label: "Chờ làm", cls: "badge-todo", icon: "⭕", next: "▶ Bắt đầu" },
@@ -14,7 +15,9 @@ const PRIORITY_META = {
   high: { label: "Cao", cls: "badge-high", color: "#ef4444" },
 };
 
-export default function TaskCard({ task, onToggle, onEdit, onDelete, currentUserId }) {
+export default function TaskCard({ task, onToggle, onEdit, onDelete }) {
+  const { user } = useAuth();
+  const currentUserId = user?._id;
   const [toggling, setToggling] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
@@ -61,10 +64,11 @@ export default function TaskCard({ task, onToggle, onEdit, onDelete, currentUser
     }
   };
 
+// No need for all these styles, moving some to inline styles where appropriate or keeping simple
   return (
     <div
+      className="bg-white rounded-2xl border border-slate-200 p-5 mb-3 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col gap-3 relative overflow-hidden"
       style={{
-        ...cardStyle,
         opacity: isDone ? 0.7 : 1,
         borderLeft: isOverdue ? "none" : `4px solid ${pm.color}`,
         border: isOverdue ? "2px solid #ef4444" : "1px solid #e2e8f0",
@@ -72,39 +76,39 @@ export default function TaskCard({ task, onToggle, onEdit, onDelete, currentUser
       }}
     >
       {/* TOP ROW */}
-      <div style={styles.top}>
-        <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="flex justify-between items-start gap-3">
+        <div className="flex-1 min-w-0">
           {/* Title */}
           <p
-            style={{
-              fontWeight: 700,
-              fontSize: 15,
-              textDecoration: isDone ? "line-through" : "none",
-              color: isDone ? "#94a3b8" : "#0f172a",
-              marginBottom: 4,
-              lineHeight: 1.4,
-            }}
+             className={`font-bold text-base leading-snug mb-2 ${isDone ? "line-through text-slate-400" : "text-slate-800"}`}
           >
             {task.title}
           </p>
 
           {/* Creator & Group */}
-          <div style={{ fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-            <div className="avatar avatar-sm" style={{ width: 22, height: 22, fontSize: 10, background: `hsl(${hashCode(task.createdBy?.name) % 360},60%,55%)` }} data-tooltip="Người tạo">
-              {task.createdBy?.name?.charAt(0)?.toUpperCase()}
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+            <div 
+              className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white shadow-sm overflow-hidden shrink-0" 
+              style={{ background: `hsl(${hashCode(task.createdBy?.name) % 360},60%,55%)` }} 
+              title="Người tạo"
+            >
+              {(() => {
+                const url = task.createdBy?._id === currentUserId ? user?.avatar : task.createdBy?.avatar;
+                return url ? <img src={url.startsWith('http') ? url : `http://localhost:5000${url}`} className="w-full h-full object-cover"/> : task.createdBy?.name?.charAt(0)?.toUpperCase();
+              })()}
             </div>
             <span>{task.createdBy?.name}</span>
             {task.group?.name && (
               <>
-                <span style={{ color: "#cbd5e1" }}>•</span>
-                <span style={{ fontWeight: 600, color: "#475569" }} data-tooltip="Tên nhóm">👥 {task.group.name}</span>
+                <span className="text-slate-300">•</span>
+                <span className="font-bold text-indigo-500 truncate" title="Tên nhóm">👥 {task.group.name}</span>
               </>
             )}
           </div>
         </div>
 
         {/* Badges */}
-        <div style={styles.badges}>
+        <div className="flex flex-wrap gap-1.5 justify-end shrink-0">
           <span className="badge" style={{ background: isGroupTask ? "#f3e8ff" : "#f1f5f9", color: isGroupTask ? "#9333ea" : "#475569" }}>
             {isGroupTask ? "👥 Nhóm" : "👤 Cá nhân"}
           </span>
@@ -120,15 +124,12 @@ export default function TaskCard({ task, onToggle, onEdit, onDelete, currentUser
         </div>
       </div>
 
-      {/* DESCRIPTION (expandable) */}
+      {/* DESCRIPTION */}
       {task.description && (
-        <div>
+        <div className="mt-1">
           <p
+            className="text-sm text-slate-500 leading-relaxed"
             style={{
-              fontSize: 13,
-              color: "#64748b",
-              margin: "10px 0 0",
-              lineHeight: 1.6,
               overflow: "hidden",
               display: "-webkit-box",
               WebkitLineClamp: expanded ? 99 : 2,
@@ -137,11 +138,10 @@ export default function TaskCard({ task, onToggle, onEdit, onDelete, currentUser
           >
             {task.description}
           </p>
-          {task.description.length > 120 && (
+          {task.description.length > 100 && (
             <button
               onClick={() => setExpanded(!expanded)}
-              className="btn-ghost"
-              style={{ fontSize: 12, padding: "3px 0", marginTop: 2, color: "#6366f1", fontWeight: 600 }}
+              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 mt-1 outline-none"
             >
               {expanded ? "Thu gọn ▲" : "Xem thêm ▼"}
             </button>
@@ -150,39 +150,34 @@ export default function TaskCard({ task, onToggle, onEdit, onDelete, currentUser
       )}
 
       {/* META ROW */}
-      <div style={styles.meta}>
+      <div className="flex items-center flex-wrap gap-3 mt-2">
         {/* Due date */}
         {task.dueDate && (
           <span
-            style={{
-              fontSize: 12,
-              color: isOverdue ? "#ef4444" : "#94a3b8",
-              fontWeight: isOverdue ? 700 : 400,
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-            }}
+            className={`text-xs flex items-center gap-1.5 ${isOverdue ? "text-red-500 font-bold" : "text-slate-500 font-medium"}`}
           >
             📅 {new Date(task.dueDate).toLocaleDateString("vi-VN")}
-            {isOverdue && " • Quá hạn!"}
+            {isOverdue && " • Quá hạn"}
           </span>
         )}
 
         {/* Assigned avatars */}
         {task.assignedTo?.length > 0 && (
-          <div className="avatar-stack" style={{ marginLeft: task.dueDate ? 12 : 0 }}>
-            {task.assignedTo.slice(0, 4).map((u) => (
+          <div className="flex -space-x-1.5">
+            {task.assignedTo.slice(0, 4).map((u) => {
+              const url = u._id === currentUserId ? user?.avatar : u.avatar;
+              return (
               <div
                 key={u._id}
-                className="avatar avatar-sm"
-                data-tooltip={u.name}
+                className="w-6 h-6 rounded-full border-[1.5px] border-white flex items-center justify-center text-[9px] font-bold text-white shadow-sm overflow-hidden"
                 style={{ background: `hsl(${hashCode(u.name) % 360},60%,55%)` }}
+                title={u.name}
               >
-                {u.name?.charAt(0)?.toUpperCase()}
+                {url ? <img src={url.startsWith('http') ? url : `http://localhost:5000${url}`} className="w-full h-full object-cover"/> : u.name?.charAt(0)?.toUpperCase()}
               </div>
-            ))}
+            )})}
             {task.assignedTo.length > 4 && (
-              <div className="avatar avatar-sm" style={{ background: "#94a3b8" }}>
+              <div className="w-6 h-6 rounded-full border-[1.5px] border-white bg-slate-200 text-slate-600 flex items-center justify-center text-[9px] font-bold shadow-sm">
                 +{task.assignedTo.length - 4}
               </div>
             )}
@@ -191,7 +186,7 @@ export default function TaskCard({ task, onToggle, onEdit, onDelete, currentUser
       </div>
 
       {/* ACTIONS */}
-      <div style={styles.actions}>
+      <div className="flex flex-wrap gap-2 mt-3.5">
         {canToggle && (
           <button
             onClick={handleToggle}
@@ -228,42 +223,3 @@ function hashCode(str = "") {
   for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
   return Math.abs(h);
 }
-
-const cardStyle = {
-  background: "#fff",
-  borderRadius: 12,
-  border: "1px solid #e2e8f0",
-  padding: "16px 18px",
-  marginBottom: 10,
-  boxShadow: "0 1px 4px rgba(0,0,0,.04)",
-  transition: "all .2s",
-};
-
-const styles = {
-  top: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-  badges: {
-    display: "flex",
-    gap: 6,
-    flexShrink: 0,
-    flexWrap: "wrap",
-    justifyContent: "flex-end",
-  },
-  meta: {
-    display: "flex",
-    alignItems: "center",
-    marginTop: 12,
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  actions: {
-    display: "flex",
-    gap: 8,
-    marginTop: 14,
-    flexWrap: "wrap",
-  },
-};

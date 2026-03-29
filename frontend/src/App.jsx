@@ -50,13 +50,45 @@ function AppRoutes() {
   );
 }
 
+import React from "react";
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+    this.setState({ errorInfo });
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 bg-red-50 text-red-900 min-h-screen">
+          <h1 className="text-2xl font-bold mb-4">CRASH DETECTED</h1>
+          <pre className="bg-red-100 p-4 rounded text-sm overflow-auto mb-4">{this.state.error && this.state.error.toString()}</pre>
+          <pre className="bg-red-100 p-4 rounded text-xs overflow-auto">{this.state.errorInfo?.componentStack}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-        <ToastContainer position="top-right" autoClose={2500} />
-      </BrowserRouter>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <div className="bg-gradient-to-br from-slate-100 via-indigo-50 to-purple-100 min-h-screen text-gray-800 font-sans">
+          <BrowserRouter>
+            <AppRoutes />
+            <ToastContainer position="bottom-right" autoClose={2500} hideProgressBar />
+          </BrowserRouter>
+        </div>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

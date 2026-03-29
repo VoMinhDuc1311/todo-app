@@ -37,6 +37,29 @@ const userController = {
       res.status(500).json({ success: false, message: e.message });
     }
   },
+
+  // POST /api/users/avatar
+  uploadAvatar: async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: "Vui lòng chọn ảnh" });
+      }
+
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+      
+      const user = await User.findById(req.user._id);
+      if (!user) {
+        return res.status(404).json({ success: false, message: "Không tìm thấy người dùng" });
+      }
+
+      user.avatar = avatarUrl;
+      await user.save();
+
+      res.json({ success: true, avatar: avatarUrl, message: "Cập nhật ảnh đại diện thành công" });
+    } catch (e) {
+      res.status(500).json({ success: false, message: e.message });
+    }
+  },
 };
 
 module.exports = userController;

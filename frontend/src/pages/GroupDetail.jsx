@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import api from "../api/axios";
+import api, { BASE_URL } from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import TaskCard from "../components/TaskCard";
 import TaskModal from "../components/TaskModal";
@@ -22,6 +22,9 @@ export default function GroupDetail() {
   const [addingMember, setAddingMember] = useState(false);
   const [filterStatus, setFilterStatus] = useState("all");
 
+  const fileInputRef = useRef(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
   useEffect(() => { fetchAll(); }, [id]);
 
   const fetchAll = async () => {
@@ -34,23 +37,62 @@ export default function GroupDetail() {
       setGroup(gRes.data.data);
       setTasks(tRes.data.data);
     } catch (e) {
-      toast.error(e.response?.data?.message || "Lỗi tải dữ liệu nhóm");
+      toast.error(e.response?.data?.message || "Error loading group");
       navigate("/groups");
     } finally {
       setLoading(false);
     }
   };
 
+  const getFullUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith("http")) return url;
+    return `${BASE_URL}${url}`;
+  };
+
+  // Permission Logic
+  const memberRecord = group?.members?.find(m => m.user?._id === user?._id);
   const isOwner = group?.owner?._id === user?._id;
+  const isLeader = memberRecord && (memberRecord.role === "leader" || memberRecord.role === "admin");
+  const canEditAvatar = isOwner || isLeader;
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      return toast.error("Chỉ chấp nhận file ảnh");
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      return toast.error("Ảnh tối đa 5MB");
+    }
+
+    setUploadingAvatar(true);
+    const formData = new FormData();
+    formData.append("avatar", file);
+
+    try {
+      const res = await api.put(`/groups/${id}/avatar`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setGroup(res.data.data);
+      toast.success("Cập nhật ảnh nhóm thành công!");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Lỗi cập nhật ảnh");
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const handleInviteUser = async (e) => {
     e.preventDefault();
-    if (!selectedUser) return toast.warn("Vui lòng chọn người dùng trước");
+    if (!selectedUser) return toast.warn("Chọn user để mời");
     setAddingMember(true);
     try {
       await api.post(`/invites`, { groupId: id, receiverId: selectedUser._id });
       setSelectedUser(null);
-      toast.success("✅ Đã gửi lời mời!");
+      toast.success("Đã gửi lời mời thành công.");
     } catch (e) {
       toast.error(e.response?.data?.message || "Lỗi gửi lời mời");
     } finally {
@@ -63,7 +105,7 @@ export default function GroupDetail() {
     try {
       const res = await api.delete(`/groups/${id}/members/${memberId}`);
       setGroup(res.data.data);
-      toast.success("Đã xóa thành viên");
+      toast.success("Đã xóa thành viên.");
     } catch (e) { toast.error(e.response?.data?.message || "Lỗi xóa thành viên"); }
   };
 
@@ -96,233 +138,226 @@ export default function GroupDetail() {
 
   if (loading) {
     return (
-      <div className="page">
-        <div style={{ textAlign: "center", padding: "60px 20px" }}>
-          <div style={{ fontSize: 48, marginBottom: 16, animation: "float 1.5s ease-in-out infinite" }}>⏳</div>
-          <p style={{ color: "#94a3b8", fontSize: 15 }}>Đang tải...</p>
-        </div>
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="page">
-      {/* Back + Header */}
-      <div style={{ marginBottom: 24 }}>
-        <button
-          onClick={() => navigate("/groups")}
-          className="btn btn-ghost btn-sm"
-          style={{ marginBottom: 12 }}
-        >
-          ← Quay lại
-        </button>
+    <div className="max-w-5xl mx-auto px-4 py-8 min-h-screen pb-20">
+      <button 
+        onClick={() => navigate("/groups")} 
+        className="mb-6 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors bg-white/70 backdrop-blur-md px-4 py-2 rounded-xl border border-white/40 shadow-sm inline-flex items-center gap-2 outline-none"
+      >
+        ← Back to groups
+      </button>
 
-        <div className="page-header" style={{ marginBottom: 0 }}>
-          <div style={{ flex: 1 }}>
-            <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{
-                width: 44, height: 44,
-                background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
-                borderRadius: 12,
-                display: "inline-flex", alignItems: "center", justifyContent: "center",
-                fontSize: 22, flexShrink: 0,
-              }}>👥</span>
-              {group?.name}
-            </h1>
-            {group?.description && (
-              <p className="page-subtitle" style={{ marginLeft: 54 }}>{group.description}</p>
+      {/* ── HERO HEADER ── */}
+      <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-lg border border-white/30 overflow-hidden mb-8 animate-fade-in">
+        {/* Large Gradient Banner */}
+        <div className="h-40 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+
+        <div className="px-6 pb-6 relative flex flex-col sm:flex-row gap-6 sm:items-end -mt-16">
+          {/* Group Avatar overlapping banner */}
+          <div className="relative group/avatar inline-block w-28 h-28 sm:w-32 sm:h-32 shrink-0">
+            <div className={`w-full h-full rounded-2xl border-4 border-white shadow-md bg-white flex items-center justify-center overflow-hidden text-4xl font-bold text-gray-300 ${uploadingAvatar ? "opacity-50" : ""}`}>
+               {group?.avatar ? ( 
+                 <img src={getFullUrl(group.avatar)} alt={group.name} className="w-full h-full object-cover" /> 
+               ) : ( 
+                 group?.name?.charAt(0).toUpperCase()
+               )}
+            </div>
+            
+            {/* Edit overlay on hover */}
+            {canEditAvatar && (
+              <div 
+                onClick={() => !uploadingAvatar && fileInputRef.current?.click()}
+                className="absolute inset-0 rounded-2xl bg-black/40 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center cursor-pointer transition-opacity backdrop-blur-[2px]"
+              >
+                 <span className="text-white text-sm font-medium tracking-wide">Change</span>
+              </div>
             )}
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
           </div>
 
-          {isOwner && (
-            <button
-              onClick={() => { setEditTask(null); setShowTaskModal(true); }}
-              className="btn btn-primary"
-            >
-              ➕ Thêm Task
-            </button>
-          )}
+          <div className="flex-1 pb-2">
+            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">{group?.name}</h1>
+            <p className="text-gray-500 text-sm mt-1.5 font-medium">{group?.members?.length || 0} members</p>
+            {group?.description && <p className="text-gray-600 text-sm mt-3 leading-relaxed max-w-2xl">{group.description}</p>}
+          </div>
+
+          <div className="pb-2 w-full sm:w-auto mt-4 sm:mt-0">
+            {canEditAvatar && (
+               <button 
+                 onClick={() => { setEditTask(null); setShowTaskModal(true); }} 
+                 className="w-full sm:w-auto bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-6 py-2.5 rounded-xl hover:scale-105 transition-all shadow-md font-semibold text-sm outline-none"
+               >
+                 Add Task
+               </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Progress Bar */}
+      {/* ── PROGRESS BAR ── */}
       {tasks.length > 0 && (
-        <div className="card" style={{ marginBottom: 20, padding: "16px 20px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "#475569" }}>Tiến độ nhóm</span>
-            <span style={{ fontSize: 15, fontWeight: 800, color: "#6366f1" }}>{completionRate}%</span>
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-sm border border-white/40 p-6 mb-8 flex flex-col gap-3 animate-fade-in relative overflow-hidden z-10 hover:shadow-md transition-shadow">
+          <div className="flex justify-between items-end px-1 relative z-10">
+            <span className="text-sm font-bold text-gray-600 uppercase tracking-wider text-[11px]">Tiến độ {isLeader || isOwner ? "dự án" : "cá nhân"}</span>
+            <span className="text-lg font-extrabold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-xl shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)]">{completionRate}%</span>
           </div>
-          <div style={{ background: "#f1f5f9", borderRadius: 99, height: 8, overflow: "hidden" }}>
+          <div className="w-full bg-slate-200/50 rounded-full h-3 overflow-hidden flex relative z-10">
             <div
-              style={{
-                height: "100%",
-                width: `${completionRate}%`,
-                background: completionRate === 100
-                  ? "linear-gradient(90deg,#10b981,#059669)"
-                  : "linear-gradient(90deg,#6366f1,#8b5cf6)",
-                borderRadius: 99,
-                transition: "width 1s ease",
-              }}
+              className="h-full transition-all duration-1000 ease-out bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"
+              style={{ width: `${completionRate}%` }}
             />
           </div>
-          <div style={{ display: "flex", gap: 16, marginTop: 10, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
-            <span>⭕ {stats.todo} chờ</span>
-            <span>🔵 {stats.in_progress} đang</span>
-            <span>✅ {stats.done} xong</span>
-          </div>
+          <div className="absolute top-0 right-0 -mr-10 -mt-10 w-40 h-40 bg-indigo-50 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
         </div>
       )}
 
-      {/* Tabs */}
-      <div style={styles.tabs}>
+      {/* ── TABS ── */}
+      <div className="flex gap-4 mb-6 border-b border-gray-200/50 pb-4 overflow-x-auto no-scrollbar">
         {[
-          { key: "tasks",   label: `📋 Tasks (${tasks.length})` },
-          { key: "members", label: `👥 Thành viên (${group?.members?.length || 0})` },
+          { key: "tasks",   label: `Tasks (${tasks.length})` },
+          { key: "members", label: `Members (${group?.members?.length || 0})` },
         ].map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`btn btn-sm ${tab === t.key ? "btn-primary" : "btn-outline"}`}
+            className={`font-semibold px-5 py-2 rounded-xl transition-colors text-sm whitespace-nowrap outline-none
+              ${tab === t.key 
+                ? "bg-white shadow-sm border border-white/50 text-gray-900" 
+                : "text-gray-500 hover:text-gray-900 hover:bg-white/40"}
+            `}
           >
             {t.label}
           </button>
         ))}
       </div>
 
-      {/* ── TASKS TAB ── */}
-      {tab === "tasks" && (
-        <div>
-          {/* Status Filters */}
-          {tasks.length > 0 && (
-            <div className="filter-tabs" style={{ marginBottom: 16 }}>
-              {[
-                { key: "all", label: `Tất cả (${stats.all})` },
-                { key: "todo", label: `⭕ Chờ (${stats.todo})` },
-                { key: "in_progress", label: `🔵 Đang (${stats.in_progress})` },
-                { key: "done", label: `✅ Xong (${stats.done})` },
-              ].map((f) => (
-                <button
-                  key={f.key}
-                  className={`filter-tab ${filterStatus === f.key ? "active" : ""}`}
-                  onClick={() => setFilterStatus(f.key)}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {filteredTasks.length === 0 ? (
-            <div className="empty-state">
-              <span className="empty-icon">📭</span>
-              <h3>Chưa có task nhóm nào</h3>
-              <p>{isOwner ? "Tạo task để phân công cho thành viên" : "Leader chưa tạo task nào"}</p>
-              {isOwner && (
-                <button
-                  onClick={() => { setEditTask(null); setShowTaskModal(true); }}
-                  className="btn btn-primary"
-                >
-                  ➕ Tạo task đầu tiên
-                </button>
-              )}
-            </div>
-          ) : (
-            filteredTasks.map((task) => (
-              <TaskCard
-                key={task._id}
-                task={task}
-                currentUserId={user?._id}
-                onToggle={handleToggle}
-                onEdit={(t) => { setEditTask(t); setShowTaskModal(true); }}
-                onDelete={handleDelete}
-              />
-            ))
-          )}
-        </div>
-      )}
-
-      {/* ── MEMBERS TAB ── */}
-      {tab === "members" && (
-        <div>
-          {/* Add Member (owner only) */}
-          {isOwner && (
-            <div className="card" style={{ marginBottom: 20 }}>
-              <h3 style={{ fontWeight: 700, marginBottom: 14, fontSize: 15 }}>
-                ✨ Mời thành viên
-              </h3>
-              <form onSubmit={handleInviteUser} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                <UserSearchInput
-                  groupId={id}
-                  selectedUser={selectedUser}
-                  onSelectUser={setSelectedUser}
-                />
-                <button type="submit" disabled={addingMember || !selectedUser} className="btn btn-primary" style={{ height: 40, opacity: (!selectedUser || addingMember) ? 0.6 : 1 }}>
-                  {addingMember ? <><span className="spinner" /> Đang mời</> : "Mời"}
-                </button>
-              </form>
-            </div>
-          )}
-
-          {/* Member List */}
-          <div className="card">
-            <h3 style={{ fontWeight: 700, marginBottom: 16, fontSize: 15 }}>
-              👥 Danh sách thành viên ({group?.members?.length || 0})
-            </h3>
-
-            {group?.members?.map((m) => (
-              <div key={m.user?._id} style={styles.memberRow}>
-                <div
-                  className="avatar avatar-lg"
-                  style={{
-                    background: m.role === "leader"
-                      ? "linear-gradient(135deg,#f59e0b,#ef4444)"
-                      : "linear-gradient(135deg,#6366f1,#8b5cf6)",
-                  }}
-                >
-                  {m.user?.name?.charAt(0)?.toUpperCase()}
-                </div>
-
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>
-                    {m.user?.name}
-                    {m.user?._id === user?._id && (
-                      <span style={{ fontSize: 11, color: "#6366f1", fontWeight: 600, marginLeft: 6 }}>
-                        (Bạn)
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{m.user?.email}</div>
-                </div>
-
-                <span
-                  style={{
-                    padding: "4px 12px",
-                    borderRadius: 99,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    background: m.role === "leader" ? "#fef3c7" : "#f1f5f9",
-                    color: m.role === "leader" ? "#b45309" : "#475569",
-                  }}
-                >
-                  {m.role === "leader" ? "👑 Leader" : "👤 Thành viên"}
-                </span>
-
-                {isOwner && m.role !== "leader" && (
+      <div className="transition-all duration-300">
+        {/* ── TASKS TAB ── */}
+        {tab === "tasks" && (
+          <div className="flex flex-col gap-6 animate-fade-in">
+             <div className="flex flex-wrap gap-2">
+                {[
+                  { key: "all", label: `All` },
+                  { key: "todo", label: `To Do` },
+                  { key: "in_progress", label: `In Progress` },
+                  { key: "done", label: `Done` },
+                ].map((f) => (
                   <button
-                    onClick={() => handleRemoveMember(m.user._id)}
-                    className="btn btn-danger btn-sm"
-                    data-tooltip="Xóa khỏi nhóm"
+                    key={f.key}
+                    onClick={() => setFilterStatus(f.key)}
+                    className={`px-4 py-1.5 rounded-xl text-sm font-semibold transition-all shadow-sm outline-none
+                      ${filterStatus === f.key 
+                        ? "bg-indigo-600 text-white border border-indigo-600"
+                        : "bg-white/60 text-gray-600 border border-white hover:bg-white hover:text-gray-900"}
+                    `}
                   >
-                    🗑
+                    {f.label}
                   </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+                ))}
+             </div>
 
-      {/* Task Modal */}
+            {filteredTasks.length === 0 ? (
+              <div className="text-center py-20 bg-white/50 backdrop-blur-md rounded-2xl border border-white flex justify-center items-center shadow-sm">
+                <p className="text-gray-400 text-sm font-medium">No tasks found.</p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {filteredTasks.map((task) => (
+                  <TaskCard
+                    key={task._id}
+                    task={task}
+                    currentUserId={user?._id}
+                    onToggle={handleToggle}
+                    onEdit={(t) => { setEditTask(t); setShowTaskModal(true); }}
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── MEMBERS TAB ── */}
+        {tab === "members" && (
+          <div className="flex flex-col gap-6 animate-fade-in relative">
+            {canEditAvatar && (
+              <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-lg border border-white/30 p-6 relative z-10 overflow-visible">
+                <h3 className="text-lg font-bold text-gray-900 mb-4 tracking-tight">Add new member</h3>
+                <form onSubmit={handleInviteUser} className="flex flex-col sm:flex-row gap-4 items-start w-full relative">
+                  <div className="flex-1 w-full relative z-[100]">
+                    <UserSearchInput
+                      groupId={id}
+                      selectedUser={selectedUser}
+                      onSelectUser={setSelectedUser}
+                    />
+                  </div>
+                  <button 
+                    type="submit" 
+                    disabled={addingMember || !selectedUser} 
+                    className="bg-gradient-to-r from-indigo-500 to-purple-500 hover:scale-105 text-white font-semibold h-[46px] px-6 rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 disabled:hover:scale-100 min-w-[120px] shrink-0 text-sm outline-none"
+                  >
+                    {addingMember ? "Sending..." : "Invite"}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-lg border border-white/30 overflow-hidden relative z-0">
+               <div className="p-6 border-b border-white/40">
+                  <h3 className="text-lg font-bold text-gray-900 tracking-tight">Team members</h3>
+               </div>
+               <div className="flex flex-col">
+                  {group?.members?.map((m) => {
+                     const isCurrUser = m.user?._id === user?._id;
+                     const isLeaderRole = m.role === "leader" || m.role === "admin";
+                     const activeAvatar = isCurrUser ? user?.avatar : m.user?.avatar;
+                     return (
+                        <div key={m.user?._id} className="flex items-center gap-4 px-6 py-4 border-b border-gray-100/50 last:border-0 hover:bg-white/60 transition-colors group">
+                           {/* Clean Avatar */}
+                           <div className="w-12 h-12 rounded-full border-2 border-white bg-slate-100 shadow-sm flex items-center justify-center text-gray-500 font-bold overflow-hidden shrink-0 text-lg">
+                              {activeAvatar ? <img src={getFullUrl(activeAvatar)} className="w-full h-full object-cover" /> : m.user?.name?.charAt(0).toUpperCase()}
+                           </div>
+                           
+                           {/* Basic Information */}
+                           <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+                                 {m.user?.name}
+                                 {isCurrUser && <span className="text-[10px] bg-indigo-100 text-indigo-700 font-bold px-1.5 py-0.5 rounded-md">You</span>}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-0.5 truncate">{m.user?.email}</div>
+                           </div>
+                           
+                           {/* Roles & Quick Actions */}
+                           <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
+                              <span className={`text-xs font-bold px-2.5 py-1 rounded-md border ${isLeaderRole ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-white text-gray-600 border-gray-200 shadow-sm"}`}>
+                                 {isLeaderRole ? "Leader" : "Member"}
+                              </span>
+                              
+                              {canEditAvatar && !isLeaderRole && (
+                                 <button 
+                                   onClick={() => handleRemoveMember(m.user._id)} 
+                                   className="text-xs text-gray-400 hover:text-red-500 hover:bg-red-50 px-2 py-1 rounded-lg transition-all opacity-0 group-hover:opacity-100 font-semibold outline-none"
+                                 >
+                                   Remove
+                                 </button>
+                              )}
+                           </div>
+                        </div>
+                     )
+                  })}
+               </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Overlapping Modals */}
       {showTaskModal && (
         <TaskModal
           task={editTask}
@@ -335,18 +370,3 @@ export default function GroupDetail() {
     </div>
   );
 }
-
-const styles = {
-  tabs: {
-    display: "flex",
-    gap: 8,
-    marginBottom: 20,
-  },
-  memberRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 14,
-    padding: "14px 0",
-    borderBottom: "1px solid #f1f5f9",
-  },
-};
