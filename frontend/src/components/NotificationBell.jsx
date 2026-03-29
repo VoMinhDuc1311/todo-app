@@ -1,19 +1,21 @@
 import { useEffect, useState, useRef } from "react";
 import api from "../api/axios";
+import { toast } from "react-toastify";
 
 export default function NotificationBell() {
   const [notis, setNotis] = useState([]);
+  const [invites, setInvites] = useState([]);
   const [open, setOpen] = useState(false);
+  const [processingId, setProcessingId] = useState(null); // To show loading state on buttons
   const ref = useRef(null);
 
   useEffect(() => {
-    fetchNoti();
-    // Poll mỗi 30 giây
-    const timer = setInterval(fetchNoti, 30000);
+    fetchAll();
+    // Poll mỗi 10 giây cho group invites (và notification luôn)
+    const timer = setInterval(fetchAll, 10000);
     return () => clearInterval(timer);
   }, []);
 
- 
   useEffect(() => {
     const handler = (e) => {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
@@ -22,24 +24,59 @@ export default function NotificationBell() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const fetchNoti = async () => {
+  const fetchAll = async () => {
     try {
-      const res = await api.get("/notifications");
-      setNotis(res.data.data);
-    } catch {}
+      const [nRes, iRes] = await Promise.all([
+        api.get("/notifications").catch(() => ({ data: { data: [] } })),
+        api.get("/invites").catch(() => ({ data: { data: [] } })),
+      ]);
+      setNotis(nRes.data.data || []);
+      setInvites(iRes.data.data || []);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const unread = notis.filter((n) => !n.isRead).length;
+  const unreadNotis = notis.filter((n) => !n.isRead).length;
+  const unreadCount = unreadNotis + invites.length; // Pending invites count as unread
 
   const markRead = async (id) => {
-    await api.patch(`/notifications/${id}/read`);
-    setNotis((prev) => prev.map((n) => n._id === id ? { ...n, isRead: true } : n));
+    await api.patch(`/notifications/${id}/read`).catch(() => {});
+    setNotis((prev) => prev.map((n) => (n._id === id ? { ...n, isRead: true } : n)));
   };
 
   const markAllRead = async () => {
-    const unreadIds = notis.filter(n => !n.isRead).map(n => n._id);
-    await Promise.all(unreadIds.map(id => api.patch(`/notifications/${id}/read`)));
-    setNotis((prev) => prev.map(n => ({ ...n, isRead: true })));
+    const unreadIds = notis.filter((n) => !n.isRead).map((n) => n._id);
+    await Promise.all(unreadIds.map((id) => api.patch(`/notifications/${id}/read`).catch(() => {})));
+    setNotis((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  };
+
+  const handleAcceptInvite = async (id) => {
+    if (processingId) return;
+    setProcessingId(id);
+    try {
+      await api.post(`/invites/${id}/accept`);
+      setInvites((prev) => prev.filter((i) => i._id !== id));
+      toast.success("✅ Đã chấp nhận lời mời và tham gia nhóm!");
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Lỗi chấp nhận lời mời");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleRejectInvite = async (id) => {
+    if (processingId) return;
+    setProcessingId(id);
+    try {
+      await api.post(`/invites/${id}/reject`);
+      setInvites((prev) => prev.filter((i) => i._id !== id));
+      toast.info("Đã từ chối lời mời");
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Lỗi từ chối lời mời");
+    } finally {
+      setProcessingId(null);
+    }
   };
 
   const timeAgo = (dateStr) => {
@@ -53,6 +90,12 @@ export default function NotificationBell() {
     return "Vừa xong";
   };
 
+  // Merge lists and sort by date descending
+  const combined = [
+    ...notis.map((n) => ({ ...n, type: "notification" })),
+    ...invites.map((i) => ({ ...i, type: "invite" })),
+  ].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
   return (
     <div style={{ position: "relative" }} ref={ref}>
       {/* Bell Button */}
@@ -62,8 +105,8 @@ export default function NotificationBell() {
         style={{ position: "relative", fontSize: 18, padding: "6px 8px" }}
       >
         🔔
-        {unread > 0 && (
-          <span style={styles.badge}>{unread > 9 ? "9+" : unread}</span>
+        {unreadCount > 0 && (
+          <span style={styles.badge}>{unreadCount > 9 ? "9+" : unreadCount}</span>
         )}
       </button>
 
@@ -72,21 +115,21 @@ export default function NotificationBell() {
         <div style={styles.dropdown}>
           {/* Header */}
           <div style={styles.dropHeader}>
-            <span style={{ fontWeight: 700, fontSize: 14 }}>Thông báo</span>
-            {unread > 0 && (
+            <span style={{ fontWeight: 700, fontSize: 14 }}>Thông báo & Lời mời</span>
+            {unreadNotis > 0 && (
               <button
                 onClick={markAllRead}
                 className="btn btn-ghost btn-sm"
                 style={{ fontSize: 12, padding: "3px 8px" }}
               >
-                Đọc tất cả
+                Đọc tất cả thông báo
               </button>
             )}
           </div>
 
           {/* List */}
           <div style={styles.list}>
-            {notis.length === 0 ? (
+            {combined.length === 0 ? (
               <div style={styles.empty}>
                 <span style={{ fontSize: 32 }}>🔕</span>
                 <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 8 }}>
@@ -94,30 +137,96 @@ export default function NotificationBell() {
                 </p>
               </div>
             ) : (
-              notis.slice(0, 10).map((n) => (
-                <div
-                  key={n._id}
-                  style={{
-                    ...styles.item,
-                    background: n.isRead ? "transparent" : "#f0f9ff",
-                    borderLeft: n.isRead ? "3px solid transparent" : "3px solid #3b82f6",
-                  }}
-                  onClick={() => !n.isRead && markRead(n._id)}
-                >
-                  <div style={styles.itemIcon}>{n.isRead ? "📭" : "📬"}</div>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 13, fontWeight: n.isRead ? 400 : 600, color: "var(--text-primary)", lineHeight: 1.5 }}>
-                      {n.message}
-                    </p>
-                    {n.createdAt && (
-                      <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>
-                        {timeAgo(n.createdAt)}
-                      </p>
-                    )}
-                  </div>
-                  {!n.isRead && <span style={styles.dot} />}
-                </div>
-              ))
+              combined.slice(0, 15).map((item) => {
+                if (item.type === "invite") {
+                  return (
+                    <div
+                      key={`inv-${item._id}`}
+                      style={{
+                        ...styles.item,
+                        background: "#f0fdf4",
+                        borderLeft: "3px solid #22c55e",
+                        cursor: "default",
+                      }}
+                    >
+                      <div style={styles.itemIcon}>✉️</div>
+                      <div style={{ flex: 1 }}>
+                        <p
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: "#0f172a",
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          <strong style={{ color: "#334155" }}>{item.senderId?.name}</strong> đã
+                          mời bạn tham gia nhóm{" "}
+                          <strong style={{ color: "#4f46e5" }}>{item.groupId?.name}</strong>
+                        </p>
+                        
+                        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                          <button
+                            onClick={() => handleAcceptInvite(item._id)}
+                            disabled={processingId === item._id}
+                            className="btn btn-primary btn-sm"
+                            style={{ padding: "4px 12px", fontSize: 12, height: "auto" }}
+                          >
+                            {processingId === item._id ? "Đang xử lý..." : "Chấp nhận"}
+                          </button>
+                          <button
+                            onClick={() => handleRejectInvite(item._id)}
+                            disabled={processingId === item._id}
+                            className="btn btn-outline btn-sm"
+                            style={{ padding: "4px 12px", fontSize: 12, height: "auto" }}
+                          >
+                            Từ chối
+                          </button>
+                        </div>
+
+                        {item.createdAt && (
+                          <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 8 }}>
+                            {timeAgo(item.createdAt)}
+                          </p>
+                        )}
+                      </div>
+                      <span style={{ ...styles.dot, background: "#22c55e" }} />
+                    </div>
+                  );
+                } else {
+                  // Type: notification
+                  return (
+                    <div
+                      key={`not-${item._id}`}
+                      style={{
+                        ...styles.item,
+                        background: item.isRead ? "transparent" : "#f0f9ff",
+                        borderLeft: item.isRead ? "3px solid transparent" : "3px solid #3b82f6",
+                      }}
+                      onClick={() => !item.isRead && markRead(item._id)}
+                    >
+                      <div style={styles.itemIcon}>{item.isRead ? "📭" : "📬"}</div>
+                      <div style={{ flex: 1 }}>
+                        <p
+                          style={{
+                            fontSize: 13,
+                            fontWeight: item.isRead ? 400 : 600,
+                            color: "#0f172a",
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          {item.message}
+                        </p>
+                        {item.createdAt && (
+                          <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+                            {timeAgo(item.createdAt)}
+                          </p>
+                        )}
+                      </div>
+                      {!item.isRead && <span style={styles.dot} />}
+                    </div>
+                  );
+                }
+              })
             )}
           </div>
         </div>
@@ -166,13 +275,13 @@ const styles = {
     borderBottom: "1px solid #e2e8f0",
   },
   list: {
-    maxHeight: 360,
+    maxHeight: 400,
     overflowY: "auto",
   },
   item: {
     display: "flex",
     gap: 10,
-    padding: "12px 16px",
+    padding: "14px 16px",
     cursor: "pointer",
     transition: "background .15s",
     borderBottom: "1px solid #f1f5f9",
@@ -189,7 +298,7 @@ const styles = {
     borderRadius: "50%",
     background: "#3b82f6",
     flexShrink: 0,
-    marginTop: 4,
+    marginTop: 6,
   },
   empty: {
     textAlign: "center",

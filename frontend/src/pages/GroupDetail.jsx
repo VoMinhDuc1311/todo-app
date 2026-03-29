@@ -4,6 +4,7 @@ import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import TaskCard from "../components/TaskCard";
 import TaskModal from "../components/TaskModal";
+import UserSearchInput from "../components/UserSearchInput";
 import { toast } from "react-toastify";
 
 export default function GroupDetail() {
@@ -17,7 +18,7 @@ export default function GroupDetail() {
   const [tab, setTab]               = useState("tasks");
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editTask, setEditTask]     = useState(null);
-  const [addEmail, setAddEmail]     = useState("");
+  const [selectedUser, setSelectedUser] = useState(null);
   const [addingMember, setAddingMember] = useState(false);
   const [filterStatus, setFilterStatus] = useState("all");
 
@@ -42,17 +43,19 @@ export default function GroupDetail() {
 
   const isOwner = group?.owner?._id === user?._id;
 
-  const handleAddMember = async (e) => {
+  const handleInviteUser = async (e) => {
     e.preventDefault();
-    if (!addEmail.trim()) return;
+    if (!selectedUser) return toast.warn("Vui lòng chọn người dùng trước");
     setAddingMember(true);
     try {
-      const res = await api.post(`/groups/${id}/members`, { email: addEmail });
-      setGroup(res.data.data);
-      setAddEmail("");
-      toast.success("✅ Đã thêm thành viên!");
-    } catch (e) { toast.error(e.response?.data?.message || "Lỗi thêm thành viên"); }
-    finally { setAddingMember(false); }
+      await api.post(`/invites`, { groupId: id, receiverId: selectedUser._id });
+      setSelectedUser(null);
+      toast.success("✅ Đã gửi lời mời!");
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Lỗi gửi lời mời");
+    } finally {
+      setAddingMember(false);
+    }
   };
 
   const handleRemoveMember = async (memberId) => {
@@ -245,21 +248,16 @@ export default function GroupDetail() {
           {isOwner && (
             <div className="card" style={{ marginBottom: 20 }}>
               <h3 style={{ fontWeight: 700, marginBottom: 14, fontSize: 15 }}>
-                ➕ Thêm thành viên
+                ✨ Mời thành viên
               </h3>
-              <form onSubmit={handleAddMember} style={{ display: "flex", gap: 10 }}>
-                <div style={{ flex: 1, position: "relative" }}>
-                  <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 14 }}>✉</span>
-                  <input
-                    value={addEmail}
-                    onChange={(e) => setAddEmail(e.target.value)}
-                    placeholder="Nhập email người dùng..."
-                    type="email"
-                    style={{ paddingLeft: 36 }}
-                  />
-                </div>
-                <button type="submit" disabled={addingMember} className="btn btn-primary">
-                  {addingMember ? <><span className="spinner" /> Đang thêm</> : "Thêm"}
+              <form onSubmit={handleInviteUser} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <UserSearchInput
+                  groupId={id}
+                  selectedUser={selectedUser}
+                  onSelectUser={setSelectedUser}
+                />
+                <button type="submit" disabled={addingMember || !selectedUser} className="btn btn-primary" style={{ height: 40, opacity: (!selectedUser || addingMember) ? 0.6 : 1 }}>
+                  {addingMember ? <><span className="spinner" /> Đang mời</> : "Mời"}
                 </button>
               </form>
             </div>
