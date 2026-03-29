@@ -57,8 +57,12 @@ export function AuthProvider({ children }) {
 
   const logout = () => dispatch({ type: "LOGOUT" });
 
+  const updateUser = (userData) => {
+    dispatch({ type: "UPDATE_USER", payload: userData });
+  };
+
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout }}>
+    <AuthContext.Provider value={{ ...state, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

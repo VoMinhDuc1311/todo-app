@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import api from "../api/axios";
+import api, { BASE_URL } from "../api/axios";
+import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
 import "../style/TaskModal.css";
 
@@ -13,8 +14,15 @@ const EMPTY = {
 };
 
 export default function TaskModal({ onClose, onSaved, task = null, groupId = null, members = [] }) {
+  const { user } = useAuth();
   const [form, setForm] = useState(EMPTY);
   const [loading, setLoading] = useState(false);
+
+  const getFullUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith("http")) return url;
+    return `${BASE_URL}${url}`;
+  };
 
   useEffect(() => {
     if (task) {
@@ -179,8 +187,11 @@ export default function TaskModal({ onClose, onSaved, task = null, groupId = nul
                       onClick={() => toggleAssign(uid)}
                       className={`task-modal-member-item ${selected ? "selected" : ""}`}
                     >
-                      <div className="avatar avatar-sm task-modal-member-avatar">
-                        {m.user.name?.charAt(0)?.toUpperCase()}
+                      <div className="avatar avatar-sm task-modal-member-avatar" style={{ overflow: "hidden" }}>
+                        {(() => {
+                           const activeAvatar = uid === user?._id ? user?.avatar : m.user?.avatar;
+                           return activeAvatar ? <img src={getFullUrl(activeAvatar)} className="w-full h-full object-cover" alt="avt" /> : m.user.name?.charAt(0)?.toUpperCase();
+                        })()}
                       </div>
                       <div className="task-modal-member-meta">
                         <p className="task-modal-member-name">{m.user.name}</p>

@@ -6,12 +6,11 @@ export default function NotificationBell() {
   const [notis, setNotis] = useState([]);
   const [invites, setInvites] = useState([]);
   const [open, setOpen] = useState(false);
-  const [processingId, setProcessingId] = useState(null); // To show loading state on buttons
+  const [processingId, setProcessingId] = useState(null);
   const ref = useRef(null);
 
   useEffect(() => {
     fetchAll();
-    // Poll mỗi 10 giây cho group invites (và notification luôn)
     const timer = setInterval(fetchAll, 10000);
     return () => clearInterval(timer);
   }, []);
@@ -38,7 +37,7 @@ export default function NotificationBell() {
   };
 
   const unreadNotis = notis.filter((n) => !n.isRead).length;
-  const unreadCount = unreadNotis + invites.length; // Pending invites count as unread
+  const unreadCount = unreadNotis + invites.length;
 
   const markRead = async (id) => {
     await api.patch(`/notifications/${id}/read`).catch(() => {});
@@ -57,9 +56,9 @@ export default function NotificationBell() {
     try {
       await api.post(`/invites/${id}/accept`);
       setInvites((prev) => prev.filter((i) => i._id !== id));
-      toast.success("✅ Đã chấp nhận lời mời và tham gia nhóm!");
+      toast.success("✅ Đã tham gia nhóm!");
     } catch (e) {
-      toast.error(e.response?.data?.message || "Lỗi chấp nhận lời mời");
+      toast.error(e.response?.data?.message || "Lỗi tham gia");
     } finally {
       setProcessingId(null);
     }
@@ -71,70 +70,54 @@ export default function NotificationBell() {
     try {
       await api.post(`/invites/${id}/reject`);
       setInvites((prev) => prev.filter((i) => i._id !== id));
-      toast.info("Đã từ chối lời mời");
+      toast.info("Đã từ chối");
     } catch (e) {
-      toast.error(e.response?.data?.message || "Lỗi từ chối lời mời");
+      toast.error(e.response?.data?.message || "Lỗi từ chối");
     } finally {
       setProcessingId(null);
     }
   };
 
-  const timeAgo = (dateStr) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const m = Math.floor(diff / 60000);
-    const h = Math.floor(m / 60);
-    const d = Math.floor(h / 24);
-    if (d > 0) return `${d} ngày trước`;
-    if (h > 0) return `${h} giờ trước`;
-    if (m > 0) return `${m} phút trước`;
-    return "Vừa xong";
-  };
-
-  // Merge lists and sort by date descending
   const combined = [
     ...notis.map((n) => ({ ...n, type: "notification" })),
     ...invites.map((i) => ({ ...i, type: "invite" })),
   ].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
   return (
-    <div style={{ position: "relative" }} ref={ref}>
-      {/* Bell Button */}
+    <div className="relative isolate" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="btn btn-ghost btn-sm"
-        style={{ position: "relative", fontSize: 18, padding: "6px 8px" }}
+        className="relative p-2 text-gray-500 hover:bg-slate-100 rounded-xl transition-all outline-none active:scale-95"
       >
-        🔔
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
         {unreadCount > 0 && (
-          <span style={styles.badge}>{unreadCount > 9 ? "9+" : unreadCount}</span>
+          <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
         )}
       </button>
 
-      {/* Dropdown */}
       {open && (
-        <div style={styles.dropdown}>
-          {/* Header */}
-          <div style={styles.dropHeader}>
-            <span style={{ fontWeight: 700, fontSize: 14 }}>Thông báo & Lời mời</span>
+        <div className="absolute right-0 mt-3 w-80 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl shadow-lg overflow-hidden z-[999]">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50/50">
+            <span className="font-semibold text-sm text-gray-800">Thông báo</span>
             {unreadNotis > 0 && (
               <button
                 onClick={markAllRead}
-                className="btn btn-ghost btn-sm"
-                style={{ fontSize: 12, padding: "3px 8px" }}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors outline-none"
               >
-                Đọc tất cả thông báo
+                Đọc tất cả
               </button>
             )}
           </div>
 
-          {/* List */}
-          <div style={styles.list}>
+          <div className="max-h-[360px] overflow-y-auto">
             {combined.length === 0 ? (
-              <div style={styles.empty}>
-                <span style={{ fontSize: 32 }}>🔕</span>
-                <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 8 }}>
-                  Chưa có thông báo nào
-                </p>
+              <div className="text-center py-10 flex flex-col items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M5 13l4 4L19 7" />
+                </svg>
+                <p className="text-sm text-gray-400 font-medium">Bạn đã xem hết thông báo</p>
               </div>
             ) : (
               combined.slice(0, 15).map((item) => {
@@ -142,87 +125,44 @@ export default function NotificationBell() {
                   return (
                     <div
                       key={`inv-${item._id}`}
-                      style={{
-                        ...styles.item,
-                        background: "#f0fdf4",
-                        borderLeft: "3px solid #22c55e",
-                        cursor: "default",
-                      }}
+                      className="p-4 border-b border-slate-50 relative flex gap-3 hover:bg-slate-50 transition-colors cursor-default"
                     >
-                      <div style={styles.itemIcon}>✉️</div>
-                      <div style={{ flex: 1 }}>
-                        <p
-                          style={{
-                            fontSize: 13,
-                            fontWeight: 600,
-                            color: "#0f172a",
-                            lineHeight: 1.5,
-                          }}
-                        >
-                          <strong style={{ color: "#334155" }}>{item.senderId?.name}</strong> đã
-                          mời bạn tham gia nhóm{" "}
-                          <strong style={{ color: "#4f46e5" }}>{item.groupId?.name}</strong>
+                      <div className="w-2 h-2 rounded-full bg-indigo-500 absolute left-4 top-5 shrink-0"></div>
+                      <div className="flex-1 min-w-0 pl-4">
+                        <p className="text-sm text-gray-800 leading-snug">
+                          <span className="font-semibold">{item.senderId?.name}</span> mời bạn vào <span className="font-semibold text-indigo-600">{item.groupId?.name}</span>
                         </p>
                         
-                        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                        <div className="flex gap-2 mt-3">
                           <button
                             onClick={() => handleAcceptInvite(item._id)}
                             disabled={processingId === item._id}
-                            className="btn btn-primary btn-sm"
-                            style={{ padding: "4px 12px", fontSize: 12, height: "auto" }}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors active:scale-95 disabled:opacity-50 flex-1"
                           >
-                            {processingId === item._id ? "Đang xử lý..." : "Chấp nhận"}
+                            Chấp nhận
                           </button>
                           <button
                             onClick={() => handleRejectInvite(item._id)}
                             disabled={processingId === item._id}
-                            className="btn btn-outline btn-sm"
-                            style={{ padding: "4px 12px", fontSize: 12, height: "auto" }}
+                            className="bg-white border border-slate-200 hover:bg-slate-100 text-gray-700 font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors active:scale-95 disabled:opacity-50 flex-1"
                           >
                             Từ chối
                           </button>
                         </div>
-
-                        {item.createdAt && (
-                          <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 8 }}>
-                            {timeAgo(item.createdAt)}
-                          </p>
-                        )}
                       </div>
-                      <span style={{ ...styles.dot, background: "#22c55e" }} />
                     </div>
                   );
                 } else {
-                  // Type: notification
                   return (
                     <div
                       key={`not-${item._id}`}
-                      style={{
-                        ...styles.item,
-                        background: item.isRead ? "transparent" : "#f0f9ff",
-                        borderLeft: item.isRead ? "3px solid transparent" : "3px solid #3b82f6",
-                      }}
                       onClick={() => !item.isRead && markRead(item._id)}
+                      className={`p-4 border-b border-slate-50 flex gap-3 cursor-pointer transition-colors ${item.isRead ? 'bg-transparent hover:bg-slate-50' : 'bg-indigo-50/50 hover:bg-indigo-50'}`}
                     >
-                      <div style={styles.itemIcon}>{item.isRead ? "📭" : "📬"}</div>
-                      <div style={{ flex: 1 }}>
-                        <p
-                          style={{
-                            fontSize: 13,
-                            fontWeight: item.isRead ? 400 : 600,
-                            color: "#0f172a",
-                            lineHeight: 1.5,
-                          }}
-                        >
-                          {item.message}
-                        </p>
-                        {item.createdAt && (
-                          <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
-                            {timeAgo(item.createdAt)}
-                          </p>
-                        )}
-                      </div>
-                      {!item.isRead && <span style={styles.dot} />}
+                      {!item.isRead && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0 mt-1.5"></div>}
+                      <p className={`text-sm leading-snug ${item.isRead ? 'text-gray-500 pl-4' : 'text-gray-800 font-medium pl-1'}`}>
+                        {item.message}
+                      </p>
                     </div>
                   );
                 }
@@ -234,77 +174,3 @@ export default function NotificationBell() {
     </div>
   );
 }
-
-const styles = {
-  badge: {
-    position: "absolute",
-    top: -2,
-    right: -2,
-    background: "#ef4444",
-    color: "#fff",
-    borderRadius: "999px",
-    fontSize: 10,
-    fontWeight: 800,
-    minWidth: 18,
-    height: 18,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "0 4px",
-    border: "2px solid #fff",
-    animation: "pulse-red 2s infinite",
-  },
-  dropdown: {
-    position: "absolute",
-    right: 0,
-    top: "calc(100% + 8px)",
-    width: 320,
-    background: "#fff",
-    border: "1px solid #e2e8f0",
-    borderRadius: 14,
-    boxShadow: "0 20px 48px rgba(0,0,0,.14)",
-    overflow: "hidden",
-    zIndex: 300,
-    animation: "slideDown .2s ease",
-  },
-  dropHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "14px 16px 10px",
-    borderBottom: "1px solid #e2e8f0",
-  },
-  list: {
-    maxHeight: 400,
-    overflowY: "auto",
-  },
-  item: {
-    display: "flex",
-    gap: 10,
-    padding: "14px 16px",
-    cursor: "pointer",
-    transition: "background .15s",
-    borderBottom: "1px solid #f1f5f9",
-    alignItems: "flex-start",
-  },
-  itemIcon: {
-    fontSize: 18,
-    flexShrink: 0,
-    marginTop: 1,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: "50%",
-    background: "#3b82f6",
-    flexShrink: 0,
-    marginTop: 6,
-  },
-  empty: {
-    textAlign: "center",
-    padding: "28px 16px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-  },
-};

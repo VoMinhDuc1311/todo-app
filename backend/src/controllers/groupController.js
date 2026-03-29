@@ -4,7 +4,12 @@ const groupController = {
   // POST /api/groups
   create: async (req, res) => {
     try {
-      const group = await groupService.create(req.user._id, req.body);
+      let avatar = "";
+      if (req.file) {
+        avatar = `/uploads/groups/${req.file.filename}`;
+      }
+      const data = { ...req.body, avatar };
+      const group = await groupService.create(req.user._id, data);
       res.status(201).json({ success: true, data: group });
     } catch (e) {
       res.status(400).json({ success: false, message: e.message });
@@ -59,10 +64,21 @@ const groupController = {
     }
   },
 
-  // PUT /api/groups/:id
   update: async (req, res) => {
     try {
       const group = await groupService.update(req.user._id, req.params.id, req.body);
+      res.json({ success: true, data: group });
+    } catch (e) {
+      res.status(400).json({ success: false, message: e.message });
+    }
+  },
+
+  // PUT /api/groups/:id/avatar
+  updateAvatar: async (req, res) => {
+    try {
+      if (!req.file) throw new Error("Vui lòng chọn ảnh!");
+      const avatarPath = `/uploads/groups/${req.file.filename}`;
+      const group = await groupService.updateAvatar(req.user._id, req.params.id, avatarPath);
       res.json({ success: true, data: group });
     } catch (e) {
       res.status(400).json({ success: false, message: e.message });

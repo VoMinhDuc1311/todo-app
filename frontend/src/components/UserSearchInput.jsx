@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import api from "../api/axios";
+import api, { BASE_URL } from "../api/axios";
 
 export default function UserSearchInput({ groupId, selectedUser, onSelectUser }) {
   const [query, setQuery] = useState("");
@@ -16,7 +16,11 @@ export default function UserSearchInput({ groupId, selectedUser, onSelectUser })
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
   }, []);
 
   useEffect(() => {
@@ -65,125 +69,47 @@ export default function UserSearchInput({ groupId, selectedUser, onSelectUser })
     }
   };
 
+  const getFullUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith("http")) return url;
+    return `${BASE_URL}${url}`;
+  };
+
   return (
-    <div style={{ position: "relative", flex: 1 }} ref={dropdownRef}>
-      <span
-        style={{
-          position: "absolute",
-          left: 12,
-          top: "50%",
-          transform: "translateY(-50%)",
-          fontSize: 14,
-          pointerEvents: "none",
-        }}
-      >
-        🔍
-      </span>
+    <div className="relative w-full z-[100]" ref={dropdownRef}>
       <input
         value={query}
         onChange={handleChange}
         onFocus={() => {
           if (query.trim() && !selectedUser) setShowDropdown(true);
         }}
-        placeholder="Tìm kiếm bằng tên hoặc email..."
+        placeholder="Search by name or email..."
         type="text"
-        style={{
-          width: "100%",
-          padding: "10px 14px 10px 36px",
-          border: "1px solid #e2e8f0",
-          borderRadius: 8,
-          outline: "none",
-          fontSize: 14,
-          transition: "border-color 0.2s",
-        }}
-        onFocusCapture={(e) => {
-          e.target.style.borderColor = "#6366f1";
-        }}
-        onBlur={(e) => {
-          e.target.style.borderColor = "#e2e8f0";
-        }}
+        className="w-full px-4 py-3 border border-slate-200 bg-white/70 backdrop-blur-md rounded-xl outline-none text-gray-800 transition-all focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 placeholder-gray-400 text-sm shadow-sm"
       />
 
       {showDropdown && query.trim() && !selectedUser && (
-        <div
-          style={{
-            position: "absolute",
-            top: "calc(100% + 4px)",
-            left: 0,
-            right: 0,
-            background: "#fff",
-            border: "1px solid #e2e8f0",
-            borderRadius: 8,
-            boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)",
-            zIndex: 100,
-            overflow: "hidden",
-            maxHeight: 280,
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
+        <div className="absolute top-full left-0 w-full mt-2 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl shadow-md z-[999] flex flex-col max-h-60 overflow-hidden">
           {loading ? (
-            <div style={{ padding: "16px", textAlign: "center", fontSize: 13, color: "#64748b" }}>
-              Đang tìm...
+            <div className="p-4 text-center text-sm text-gray-500">
+              Loading...
             </div>
           ) : results.length > 0 ? (
-            <ul style={{ margin: 0, padding: 0, listStyle: "none", overflowY: "auto" }}>
+            <ul className="m-0 p-0 overflow-y-auto">
               {results.map((u) => (
                 <li
                   key={u._id}
                   onClick={() => handleSelect(u)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    padding: "10px 14px",
-                    cursor: "pointer",
-                    borderBottom: "1px solid #f1f5f9",
-                    transition: "background 0.2s",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  className="flex items-center gap-3 px-4 py-2.5 cursor-pointer border-b border-slate-50 hover:bg-slate-100 transition-colors last:border-0"
                 >
-                  <div
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: "50%",
-                      background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
-                      color: "#fff",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 13,
-                      fontWeight: 700,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {u.name.charAt(0).toUpperCase()}
+                  <div className="w-8 h-8 rounded-full bg-slate-200 text-gray-600 flex items-center justify-center text-xs font-semibold shrink-0 shadow-sm border border-white overflow-hidden">
+                     {u.avatar ? <img src={getFullUrl(u.avatar)} alt={u.name} className="w-full h-full object-cover"/> : u.name?.charAt(0)?.toUpperCase()}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontWeight: 600,
-                        fontSize: 14,
-                        color: "#0f172a",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm text-gray-800 truncate">
                       {u.name}
                     </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: "#64748b",
-                        marginTop: 2,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
+                    <div className="text-xs text-gray-500 truncate mt-0.5">
                       {u.email}
                     </div>
                   </div>
@@ -191,7 +117,7 @@ export default function UserSearchInput({ groupId, selectedUser, onSelectUser })
               ))}
             </ul>
           ) : (
-            <div style={{ padding: "16px", textAlign: "center", fontSize: 13, color: "#64748b" }}>
+            <div className="p-4 text-center text-sm text-gray-500">
               Không tìm thấy người dùng
             </div>
           )}

@@ -2,10 +2,11 @@ const groupRepo = require("../repositories/groupRepo");
 const userRepo = require("../repositories/userRepo");
 
 const groupService = {
-  create: async (ownerId, { name, description }) => {
+  create: async (ownerId, { name, description, avatar }) => {
     const group = await groupRepo.create({
       name,
       description,
+      avatar,
       owner: ownerId,
       members: [{ user: ownerId, role: "leader" }],
     });
@@ -76,6 +77,25 @@ const groupService = {
     }
 
     return groupRepo.updateById(groupId, data);
+  },
+
+  updateAvatar: async (userId, groupId, avatarPath) => {
+    const group = await groupRepo.findById(groupId);
+    if (!group) throw new Error("Nhóm không tồn tại");
+
+    const member = group.members.find(
+      (m) => m.user && m.user._id.toString() === userId.toString()
+    );
+    const isOwner = group.owner._id.toString() === userId.toString();
+    const isLeader = member && (member.role === "leader" || member.role === "admin");
+
+    if (!isOwner && !isLeader) {
+      throw new Error("Chỉ owner hoặc leader mới có quyền đổi ảnh nhóm");
+    }
+
+    group.avatar = avatarPath;
+    await group.save();
+    return groupRepo.findById(groupId);
   },
 
   delete: async (ownerId, groupId) => {

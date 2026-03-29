@@ -41,15 +41,31 @@ const taskService = {
     );
     if (!isMember) throw new Error("Bạn không phải thành viên nhóm");
 
-    return taskRepo.findGroupTasks(groupId);
+    const memberRecord = group.members.find(
+      (m) => m.user && m.user._id.toString() === userId.toString()
+    );
+    const isLeader = group.owner._id.toString() === userId.toString() || memberRecord?.role === "leader" || memberRecord?.role === "admin";
+
+    if (isLeader) {
+      return taskRepo.findGroupTasks(groupId);
+    } else {
+      return taskRepo.findGroupTasksForMember(groupId, userId);
+    }
   },
 
   // ⭐ FINAL VERSION
   getMyTasks: async (userId) => {
     const userGroups = await groupRepo.findByMember(userId);
-    const groupIds = userGroups.map((g) => g._id);
+    
+    // Mảng chỉ chứa các Group ID mà user làm cấu trúc LEADER
+    const leaderGroupIds = userGroups.filter((g) => {
+       const mId = g.owner._id ? g.owner._id.toString() : g.owner.toString();
+       if (mId === userId.toString()) return true;
+       const record = g.members.find(mem => mem.user && mem.user._id.toString() === userId.toString());
+       return record?.role === "leader" || record?.role === "admin";
+    }).map((g) => g._id);
 
-    const allTasks = await taskRepo.findMyAllTasks(userId, groupIds);
+    const allTasks = await taskRepo.findMyAllTasks(userId, leaderGroupIds);
 
     return allTasks.map((t) => ({
       ...t._doc,
@@ -66,6 +82,27 @@ const taskService = {
 
     if (task.createdBy._id.toString() !== userId.toString()) {
       throw new Error("Không có quyền");
+    }
+
+    if (data.status === "done" && task.status !== "done" && task.type === "group" && task.group) {
+      const group = await groupRepo.findById(task.group._id);
+      if (group) {
+         const leaders = [];
+         if (group.owner) leaders.push(group.owner._id ? group.owner._id.toString() : group.owner.toString());
+         group.members.forEach(m => {
+            if (m.role === "leader" || m.role === "admin") {
+               const uid = m.user ? (m.user._id ? m.user._id.toString() : m.user.toString()) : null;
+               if (uid && !leaders.includes(uid)) leaders.push(uid);
+            }
+         });
+         const notifyList = leaders.filter(id => id !== userId.toString());
+         for (const lId of notifyList) {
+            await Notification.create({
+               user: lId,
+               message: `✅ Task "${task.title}" (Nhóm: ${group.name}) đã được chuyển thành Hoàn thành!`,
+            });
+         }
+      }
     }
 
     return taskRepo.updateById(taskId, data);
@@ -86,6 +123,27 @@ const taskService = {
     if (task.status === "todo") newStatus = "in_progress";
     else if (task.status === "in_progress") newStatus = "done";
     else newStatus = "todo";
+
+    if (newStatus === "done" && task.type === "group" && task.group) {
+      const group = await groupRepo.findById(task.group._id);
+      if (group) {
+         const leaders = [];
+         if (group.owner) leaders.push(group.owner._id ? group.owner._id.toString() : group.owner.toString());
+         group.members.forEach(m => {
+            if (m.role === "leader" || m.role === "admin") {
+               const uid = m.user ? (m.user._id ? m.user._id.toString() : m.user.toString()) : null;
+               if (uid && !leaders.includes(uid)) leaders.push(uid);
+            }
+         });
+         const notifyList = leaders.filter(id => id !== userId.toString());
+         for (const lId of notifyList) {
+            await Notification.create({
+               user: lId,
+               message: `✅ Task "${task.title}" (Nhóm: ${group.name}) vừa được đánh dấu Hoàn thành!`,
+            });
+         }
+      }
+    }
 
     return taskRepo.updateById(taskId, { status: newStatus });
   },
