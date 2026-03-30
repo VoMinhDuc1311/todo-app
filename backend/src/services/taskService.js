@@ -49,14 +49,23 @@ const taskService = {
 
     const task = await taskRepo.create(taskData);
 
-    // 🏆 FEATURE 2 (CREATE) - Non-blocking
+    // 🏆 FEATURE 2 (CREATE) - Non-blocking with Rich Metadata
     if (data.assignedTo && Array.isArray(data.assignedTo) && data.assignedTo.length > 0) {
       const groupName = group.name;
+      const actor = await mongoose.model("User").findById(userId);
+      const actorName = actor ? actor.name : "Hệ thống";
+      
       data.assignedTo.forEach(uid => {
          if (uid === userId.toString()) return;
          Notification.create({
             user: uid,
-            message: `📌 Bạn vừa được nhóm quản lý phân công tác vụ mới: "${data.title}" (Nhóm: ${groupName}).`
+            type: "task_assigned",
+            taskTitle: data.title,
+            groupName: groupName,
+            actorName: actorName,
+            taskId: task._id,
+            groupId: group._id,
+            message: `📌 Bạn vừa được ${actorName} phân công tác vụ mới: "${data.title}" (Nhóm: ${groupName}).`
          }).catch(err => console.error("Notification Error:", err));
       });
     }
