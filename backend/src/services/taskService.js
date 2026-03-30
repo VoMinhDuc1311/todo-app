@@ -49,16 +49,16 @@ const taskService = {
 
     const task = await taskRepo.create(taskData);
 
-    // 🏆 FEATURE 2 (CREATE)
+    // 🏆 FEATURE 2 (CREATE) - Non-blocking
     if (data.assignedTo && Array.isArray(data.assignedTo) && data.assignedTo.length > 0) {
-      let groupName = group.name;
-      for (const uid of data.assignedTo) {
-         if (uid === userId.toString()) continue;
-         await Notification.create({
+      const groupName = group.name;
+      data.assignedTo.forEach(uid => {
+         if (uid === userId.toString()) return;
+         Notification.create({
             user: uid,
             message: `📌 Bạn vừa được nhóm quản lý phân công tác vụ mới: "${data.title}" (Nhóm: ${groupName}).`
-         });
-      }
+         }).catch(err => console.error("Notification Error:", err));
+      });
     }
 
     return task;
@@ -138,10 +138,10 @@ const taskService = {
          });
          const notifyList = leaders.filter(id => id !== userId.toString());
          for (const lId of notifyList) {
-            await Notification.create({
+            Notification.create({
                user: lId,
                message: `✅ Task "${task.title}" (Nhóm: ${group.name}) đã được chuyển thành Hoàn thành!`,
-            });
+            }).catch(err => console.error("Notification Error:", err));
          }
       }
     }
@@ -159,10 +159,10 @@ const taskService = {
         }
         for (const uid of newAssignees) {
            if (uid === userId.toString()) continue; // Skip self
-           await Notification.create({
+           Notification.create({
               user: uid,
               message: `📌 Bạn vừa được phân công một tác vụ mới: "${task.title}" (Nhóm: ${groupName}). Hãy kiểm tra ngay!`
-           });
+           }).catch(err => console.error("Notification Error:", err));
         }
       }
     }
@@ -206,10 +206,10 @@ const taskService = {
          });
          const notifyList = leaders.filter(id => id !== userId.toString());
          for (const lId of notifyList) {
-            await Notification.create({
+            Notification.create({
                user: lId,
                message: `✅ Task "${task.title}" (Nhóm: ${group.name}) vừa được đánh dấu Hoàn thành!`,
-            });
+            }).catch(err => console.error("Notification Error:", err));
          }
       }
     }
@@ -242,10 +242,10 @@ const taskService = {
       $addToSet: { assignedTo },
     });
 
-    await Notification.create({
+    Notification.create({
       user: assignedTo,
       message: `📌 Bạn được giao task: "${task.title}" (Nhóm: ${group.name})`,
-    });
+    }).catch(err => console.error("Notification Error:", err));
 
     return updated;
   },
