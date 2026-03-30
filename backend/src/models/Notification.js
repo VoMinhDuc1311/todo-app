@@ -25,6 +25,11 @@ NotificationSchema.post("save", async function (doc) {
     const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
     const appLogo = "🚀"; // Simplified logo icon
 
+    // 🏆 FIX: Define taskLink properly to avoid ReferenceError
+    const taskLink = doc.taskId 
+      ? `${frontendURL}/tasks/${doc.taskId}` 
+      : `${frontendURL}/notifications`;
+
     const htmlContent = `
       <div style="background-color: #f5f6fa; padding: 40px 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #2d3436;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
@@ -51,9 +56,9 @@ NotificationSchema.post("save", async function (doc) {
 
             <!-- CTA Button -->
             <div style="text-align: center;">
-              <a href="${frontendURL}" target="_blank" 
+              <a href="${taskLink}" target="_blank" 
                  style="display: inline-block; background-color: #4f46e5; color: #ffffff; padding: 14px 32px; border-radius: 8px; font-weight: 600; text-decoration: none; transition: background-color 0.3s ease; box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);">
-                 Truy cập ứng dụng ngay
+                 Xem chi tiết tác vụ
               </a>
             </div>
             
@@ -66,7 +71,7 @@ NotificationSchema.post("save", async function (doc) {
           <!-- Footer -->
           <div style="background-color: #f1f5f9; padding: 25px; text-align: center; border-top: 1px solid #e2e8f0;">
             <p style="margin: 0; font-size: 12px; color: #64748b;">
-              &copy; 2026 Todo SaaS System. Powered by Advanced Agentic Coding.
+              &copy; 2026 Todo SaaS System. All rights reserved.
             </p>
             <div style="margin-top: 10px;">
               <a href="#" style="color: #4f46e5; text-decoration: none; font-size: 12px; margin: 0 10px;">Privacy Policy</a>
@@ -75,33 +80,9 @@ NotificationSchema.post("save", async function (doc) {
           </div>
         </div>
       </div>
-
-      <p style="font-size: 15px;">Please click below to view more details:</p>
-
-      <!-- Button -->
-      <div style="text-align:center;margin:25px 0;">
-        <a href="${taskLink}" 
-           style="background:#4f46e5;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block;box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);">
-          View Task
-        </a>
-      </div>
-
-      <p style="font-size:13px;color:#718096;line-height: 1.6; border-top: 1px solid #f1f5f9; padding-top: 15px;">
-        If you did not expect this notification, you can ignore this email.
-      </p>
-    </div>
-
-    <!-- Footer -->
-    <div style="background:#f8fafc;padding:20px;text-align:center;font-size:12px;color:#94a3b8;border-top: 1px solid #f1f5f9;">
-      <p style="margin:0; font-weight: 600;">© 2026 Todo SaaS. All rights reserved.</p>
-      <p style="margin:5px 0;">This is an automated message, please do not reply.</p>
-    </div>
-
-  </div>
-</div>
     `;
 
-    // 🏆 NON-BLOCKING (No await here)
+    // 🏆 NON-BLOCKING (No await here to keep task creation fast)
     sendMail(
       targetUser.email, 
       "🔔 Thông báo mới từ Todo SaaS", 
