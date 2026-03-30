@@ -136,10 +136,18 @@ const taskService = {
                if (uid && !leaders.includes(uid)) leaders.push(uid);
             }
          });
+         const actor = await mongoose.model("User").findById(userId);
+         const actorName = actor ? actor.name : "Hệ thống";
          const notifyList = leaders.filter(id => id !== userId.toString());
          for (const lId of notifyList) {
             Notification.create({
                user: lId,
+               type: "task_completed",
+               taskTitle: task.title,
+               groupName: group.name,
+               actorName: actorName,
+               taskId: task._id,
+               groupId: group._id,
                message: `✅ Task "${task.title}" (Nhóm: ${group.name}) đã được chuyển thành Hoàn thành!`,
             }).catch(err => console.error("Notification Error:", err));
          }
@@ -157,10 +165,18 @@ const taskService = {
            const group = await groupRepo.findById(task.group._id || task.group);
            if (group) groupName = group.name;
         }
+        const actor = await mongoose.model("User").findById(userId);
+        const actorName = actor ? actor.name : "Hệ thống";
         for (const uid of newAssignees) {
            if (uid === userId.toString()) continue; // Skip self
            Notification.create({
               user: uid,
+              type: "task_assigned",
+              taskTitle: task.title,
+              groupName: groupName,
+              actorName: actorName,
+              taskId: task._id,
+              groupId: task.group?._id || task.group,
               message: `📌 Bạn vừa được phân công một tác vụ mới: "${task.title}" (Nhóm: ${groupName}). Hãy kiểm tra ngay!`
            }).catch(err => console.error("Notification Error:", err));
         }
@@ -204,10 +220,18 @@ const taskService = {
                if (uid && !leaders.includes(uid)) leaders.push(uid);
             }
          });
+         const actor = await mongoose.model("User").findById(userId);
+         const actorName = actor ? actor.name : "Hệ thống";
          const notifyList = leaders.filter(id => id !== userId.toString());
          for (const lId of notifyList) {
             Notification.create({
                user: lId,
+               type: "task_completed",
+               taskTitle: task.title,
+               groupName: group.name,
+               actorName: actorName,
+               taskId: task._id,
+               groupId: group._id,
                message: `✅ Task "${task.title}" (Nhóm: ${group.name}) vừa được đánh dấu Hoàn thành!`,
             }).catch(err => console.error("Notification Error:", err));
          }
@@ -244,6 +268,12 @@ const taskService = {
 
     Notification.create({
       user: assignedTo,
+      type: "task_assigned",
+      taskTitle: task.title,
+      groupName: group.name,
+      actorName: actorName,
+      taskId: task._id,
+      groupId: group._id,
       message: `📌 Bạn được giao task: "${task.title}" (Nhóm: ${group.name})`,
     }).catch(err => console.error("Notification Error:", err));
 
@@ -292,11 +322,19 @@ const taskService = {
              if (uid && !leaders.includes(uid)) leaders.push(uid);
           }
        });
+       const actor = await mongoose.model("User").findById(userId);
+       const actorName = actor ? actor.name : "Hệ thống";
        const notifyList = leaders.filter(id => id !== userId.toString());
        for (const lId of notifyList) {
           // Send notification asynchronously
           Notification.create({
              user: lId,
+             type: "task_completed",
+             taskTitle: task.title,
+             groupName: group.name,
+             actorName: actorName,
+             taskId: task._id,
+             groupId: group._id,
              message: `✅ Task "${task.title}" (Nhóm: ${group.name}) đã được kéo sang cột Hoàn thành!`,
           }).catch(err => console.error("Notification failed", err));
        }

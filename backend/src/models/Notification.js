@@ -4,6 +4,12 @@ const { sendMail } = require("../utils/mailer");
 const NotificationSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    type: { type: String, enum: ["task_assigned", "task_completed", "other"], default: "other" },
+    taskTitle: String,
+    groupName: String,
+    actorName: String,
+    taskId: mongoose.Schema.Types.ObjectId,
+    groupId: mongoose.Schema.Types.ObjectId,
     message: String,
     isRead: { type: Boolean, default: false },
   },
@@ -69,14 +75,40 @@ NotificationSchema.post("save", async function (doc) {
           </div>
         </div>
       </div>
+
+      <p style="font-size: 15px;">Please click below to view more details:</p>
+
+      <!-- Button -->
+      <div style="text-align:center;margin:25px 0;">
+        <a href="${taskLink}" 
+           style="background:#4f46e5;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block;box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);">
+          View Task
+        </a>
+      </div>
+
+      <p style="font-size:13px;color:#718096;line-height: 1.6; border-top: 1px solid #f1f5f9; padding-top: 15px;">
+        If you did not expect this notification, you can ignore this email.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background:#f8fafc;padding:20px;text-align:center;font-size:12px;color:#94a3b8;border-top: 1px solid #f1f5f9;">
+      <p style="margin:0; font-weight: 600;">© 2026 Todo SaaS. All rights reserved.</p>
+      <p style="margin:5px 0;">This is an automated message, please do not reply.</p>
+    </div>
+
+  </div>
+</div>
     `;
 
-    await sendMail(
+    // 🏆 NON-BLOCKING (No await here)
+    sendMail(
       targetUser.email, 
       "🔔 Thông báo mới từ Todo SaaS", 
       doc.message, 
       htmlContent
-    );
+    ).catch(err => console.error("📧 ASYNC EMAIL ERROR:", err));
+
   } catch (e) {
     console.error("User hook email parsing error:", e);
   }
