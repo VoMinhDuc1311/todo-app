@@ -22,45 +22,58 @@ NotificationSchema.post("save", async function (doc) {
     const targetUser = await User.findById(doc.user);
     if (!targetUser || !targetUser.email) return;
 
-    // Build Email Context
-    const receiverName = targetUser.name || "User";
-    const taskTitle = doc.taskTitle || "N/A";
-    const groupName = doc.groupName || "Cá nhân";
-    const actorName = doc.actorName || "Hệ thống";
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-    const taskLink = doc.groupId ? `${frontendUrl}/groups/${doc.groupId}` : `${frontendUrl}/`;
-
-    let emailSubject = "🔔 Thông báo mới từ Todo SaaS";
-    let statusLabel = "Thông báo";
-
-    if (doc.type === "task_assigned") {
-      emailSubject = "📌 Bạn được giao công việc mới - Todo SaaS";
-      statusLabel = "You have been assigned a new task";
-    } else if (doc.type === "task_completed") {
-      emailSubject = "✅ Công việc đã hoàn thành - Todo SaaS";
-      statusLabel = "A task has been marked as completed";
-    }
+    const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
+    const appLogo = "🚀"; // Simplified logo icon
 
     const htmlContent = `
-<div style="background:#f5f6fa;padding:30px 0;font-family:Arial,sans-serif;">
-  <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+      <div style="background-color: #f5f6fa; padding: 40px 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #2d3436;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+          
+          <!-- Header (Brand Indigo) -->
+          <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 30px; text-align: center;">
+            <div style="font-size: 32px; margin-bottom: 10px;">${appLogo}</div>
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">Todo SaaS</h1>
+            <p style="color: rgba(255,255,255,0.9); margin-top: 5px; font-size: 14px;">Hệ thống quản lý tác vụ thông minh</p>
+          </div>
 
-    <!-- Header -->
-    <div style="background:#4f46e5;color:#ffffff;padding:20px;text-align:center;">
-      <h2 style="margin:0;">🚀 Todo SaaS</h2>
-      <p style="margin:5px 0 0;font-size:14px;">Task Management System</p>
-    </div>
+          <!-- Content Section -->
+          <div style="padding: 40px 30px;">
+            <h2 style="font-size: 20px; color: #1e293b; margin-top: 0; margin-bottom: 20px;">Xin chào, ${targetUser.name}! 👋</h2>
+            <p style="font-size: 16px; line-height: 1.6; color: #64748b; margin-bottom: 30px;">
+              Chúng tôi muốn gửi đến bạn một thông báo mới quan trọng từ dự án của bạn trên Todo SaaS:
+            </p>
+            
+            <div style="background-color: #f8fafc; border-left: 5px solid #4f46e5; padding: 20px; border-radius: 8px; margin-bottom: 35px;">
+              <p style="margin: 0; font-size: 16px; font-style: italic; color: #1e293b; line-height: 1.5;">
+                "${doc.message}"
+              </p>
+            </div>
 
-    <!-- Body -->
-    <div style="padding:25px; color: #333333;">
-      <p style="font-size: 16px;">Hello <strong>${receiverName}</strong>,</p>
+            <!-- CTA Button -->
+            <div style="text-align: center;">
+              <a href="${frontendURL}" target="_blank" 
+                 style="display: inline-block; background-color: #4f46e5; color: #ffffff; padding: 14px 32px; border-radius: 8px; font-weight: 600; text-decoration: none; transition: background-color 0.3s ease; box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);">
+                 Truy cập ứng dụng ngay
+              </a>
+            </div>
+            
+            <p style="font-size: 14px; color: #94a3b8; line-height: 1.5; margin-top: 40px; text-align: center;">
+              Bạn nhận được email này vì bạn là thành viên của hệ thống Todo SaaS. 
+              Nếu có bất kỳ thắc mắc nào, đừng ngần ngại liên hệ với chúng tôi.
+            </p>
+          </div>
 
-      <p style="font-size: 15px;">${statusLabel}:</p>
-
-      <div style="background:#f9fafb;padding:15px;border-radius:6px;margin:15px 0;border: 1px solid #edf2f7;">
-        <p style="margin:5px 0;"><strong>📌 Task:</strong> ${taskTitle}</p>
-        <p style="margin:5px 0;"><strong>📁 Project:</strong> ${groupName}</p>
-        <p style="margin:5px 0;"><strong>👤 Action by:</strong> ${actorName}</p>
+          <!-- Footer -->
+          <div style="background-color: #f1f5f9; padding: 25px; text-align: center; border-top: 1px solid #e2e8f0;">
+            <p style="margin: 0; font-size: 12px; color: #64748b;">
+              &copy; 2026 Todo SaaS System. Powered by Advanced Agentic Coding.
+            </p>
+            <div style="margin-top: 10px;">
+              <a href="#" style="color: #4f46e5; text-decoration: none; font-size: 12px; margin: 0 10px;">Privacy Policy</a>
+              <a href="#" style="color: #4f46e5; text-decoration: none; font-size: 12px; margin: 0 10px;">Support</a>
+            </div>
+          </div>
+        </div>
       </div>
 
       <p style="font-size: 15px;">Please click below to view more details:</p>
@@ -91,7 +104,7 @@ NotificationSchema.post("save", async function (doc) {
     // 🏆 NON-BLOCKING (No await here)
     sendMail(
       targetUser.email, 
-      emailSubject, 
+      "🔔 Thông báo mới từ Todo SaaS", 
       doc.message, 
       htmlContent
     ).catch(err => console.error("📧 ASYNC EMAIL ERROR:", err));
