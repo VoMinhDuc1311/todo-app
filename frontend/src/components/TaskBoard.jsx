@@ -3,12 +3,12 @@ import socket from "../config/socket";
 import {
   DndContext,
   DragOverlay,
-  closestCorners,
+  pointerWithin,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
-  useDroppable
+  useDroppable,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -27,19 +27,19 @@ function SortableTaskItem({ task, currentUserId, onEdit, onDelete, onToggle }) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task._id, data: { task } });
+  } = useSortable({ id: task._id, data: { task, type: "task" } });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0 : 1,
+    opacity: isDragging ? 0.3 : 1,
     position: "relative",
   };
 
   return (
     <div
       ref={setNodeRef} style={style} {...attributes} {...listeners}
-      className="cursor-grab active:cursor-grabbing w-full mb-3 last:mb-0"
+      className={`cursor-grab active:cursor-grabbing w-full mb-2.5 last:mb-0 transition-opacity ${isDragging ? "z-50" : ""}`}
     >
       <TaskCard
         task={task}
@@ -54,24 +54,26 @@ function SortableTaskItem({ task, currentUserId, onEdit, onDelete, onToggle }) {
 
 // Droppable Column
 function Column({ id, title, tasks, currentUserId, onEdit, onDelete, onToggle }) {
-  const { setNodeRef, isOver } = useDroppable({ id });
+  const { setNodeRef, isOver } = useDroppable({ id, data: { type: "column" } });
 
   return (
     <div
       ref={setNodeRef}
-      className={`bg-slate-100/60 backdrop-blur-sm rounded-3xl p-4 flex flex-col w-full min-h-[500px] border transition-all duration-200 ${
-        isOver ? "border-indigo-400 bg-indigo-50/70 shadow-inner" : "border-slate-200 shadow-sm"
+      className={`bg-[#f4f5f7] rounded-lg p-3 flex flex-col w-full min-h-[600px] transition-colors duration-200 border-2 ${
+        isOver ? "border-blue-400 bg-blue-50/50" : "border-transparent"
       }`}
     >
-      <h3 className="font-extrabold text-slate-700 tracking-wide mb-5 px-2 flex justify-between items-center text-[15px]">
-        {title}
-        <span className="text-[11px] bg-white text-slate-600 px-2.5 py-1 rounded-xl shadow-sm border border-slate-100">
+      <div className="flex items-center justify-between mb-4 px-1">
+        <h3 className="font-bold text-[#5e6c84] text-xs uppercase tracking-wider">
+          {title}
+        </h3>
+        <span className="text-[10px] bg-[#ebecf0] text-[#42526e] font-bold px-2 py-0.5 rounded-full">
           {tasks.length}
         </span>
-      </h3>
+      </div>
 
       <SortableContext id={id} items={tasks.map(t => t._id)} strategy={verticalListSortingStrategy}>
-        <div className="flex-1 w-full flex flex-col">
+        <div className="flex-1 w-full flex flex-col min-h-[50px]">
           {tasks.map((task) => (
             <SortableTaskItem
               key={task._id}
@@ -82,6 +84,12 @@ function Column({ id, title, tasks, currentUserId, onEdit, onDelete, onToggle })
               onToggle={onToggle}
             />
           ))}
+          {/* Empty state visual for empty columns */}
+          {tasks.length === 0 && (
+            <div className={`h-16 rounded-md border-2 border-dashed flex items-center justify-center transition-opacity ${isOver ? "opacity-100 border-blue-300" : "opacity-0"}`}>
+               <span className="text-xs text-blue-400 font-medium">Drop here</span>
+            </div>
+          )}
         </div>
       </SortableContext>
     </div>
@@ -98,9 +106,9 @@ export default function TaskBoard({ tasks, currentUserId, onStatusChange, onEdit
   );
 
   const columns = {
-    todo:        { title: "⭕ To Do",      items: tasks.filter(t => t.status === "todo") },
-    in_progress: { title: "🔵 In Progress", items: tasks.filter(t => t.status === "in_progress") },
-    done:        { title: "✅ Done",        items: tasks.filter(t => t.status === "done") },
+    todo:        { title: "Todo",          items: tasks.filter(t => t.status === "todo") },
+    in_progress: { title: "In Progress",   items: tasks.filter(t => t.status === "in_progress") },
+    done:        { title: "Done",          items: tasks.filter(t => t.status === "done") },
   };
 
   // ─── Lắng nghe event từ các client khác ───────────────────────────────────
@@ -114,10 +122,22 @@ export default function TaskBoard({ tasks, currentUserId, onStatusChange, onEdit
       socket.off("task:statusChanged", handleRemoteStatusChange);
     };
   }, [handleRemoteStatusChange]);
-  // ──────────────────────────────────────────────────────────────────────────
 
   const handleDragStart = (e) => {
     setActiveId(e.active.id);
+  };
+
+  // Custom collision detection to prioritize columns
+  const customCollisionDetection = (args) => {
+    // First, check pointerWithin
+    const collisions = pointerWithin(args);
+    
+    // If we have a collision with a column, prioritize it
+    const columnCollision = collisions.find((c) => c.data?.droppableHandler?.data?.type === 'column');
+    if (columnCollision) return [columnCollision];
+    
+    // Fallback logic
+    return collisions;
   };
 
   const handleDragEnd = (e) => {
@@ -129,12 +149,28 @@ export default function TaskBoard({ tasks, currentUserId, onStatusChange, onEdit
     const taskId = active.id;
     const overId = over.id;
 
+    console.log("Dropped to:", overId); // Debug log
+
     let newStatus = null;
+    
+    // 1. Check if overId is directly a column key
     if (Object.keys(columns).includes(overId)) {
       newStatus = overId;
-    } else {
+    } 
+    // 2. Check if overId is a task, then get its column
+    else {
       const overTask = tasks.find(t => t._id === overId);
-      if (overTask) newStatus = overTask.status;
+      if (overTask) {
+        newStatus = overTask.status;
+      } else {
+        // 3. Last resort: check the data attribute of the droppable
+        const overData = over.data?.current;
+        if (overData?.type === "column") {
+           newStatus = overId;
+        } else if (overData?.task) {
+           newStatus = overData.task.status;
+        }
+      }
     }
 
     const activeTask = tasks.find(t => t._id === taskId);
@@ -152,11 +188,11 @@ export default function TaskBoard({ tasks, currentUserId, onStatusChange, onEdit
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={customCollisionDetection}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in w-full">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full h-full pb-8">
         {Object.entries(columns).map(([id, col]) => (
           <Column
             key={id}
@@ -172,9 +208,9 @@ export default function TaskBoard({ tasks, currentUserId, onStatusChange, onEdit
       </div>
 
       {/* Ghost element while dragging */}
-      <DragOverlay>
+      <DragOverlay dropAnimation={null}>
         {activeTask ? (
-          <div className="opacity-90 scale-105 shadow-2xl rounded-2xl cursor-grabbing pointer-events-none w-full">
+          <div className="opacity-100 scale-105 shadow-xl rotate-2 rounded-lg cursor-grabbing pointer-events-none w-full max-w-[350px]">
             <TaskCard
               task={activeTask}
               currentUserId={currentUserId}

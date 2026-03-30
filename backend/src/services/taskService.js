@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const taskRepo = require("../repositories/taskRepo");
 const groupRepo = require("../repositories/groupRepo");
 const Notification = require("../models/Notification");
@@ -279,6 +280,9 @@ const taskService = {
 
     ensureCanReopen(task, newStatus, userId, group);
 
+    // Update database first to ensure status changed successfully
+    const updatedTask = await taskRepo.updateById(taskId, { status: newStatus });
+
     if (newStatus === "done" && task.status !== "done" && task.type === "group" && group) {
        const leaders = [];
        if (group.owner) leaders.push(group.owner._id.toString());
@@ -290,14 +294,15 @@ const taskService = {
        });
        const notifyList = leaders.filter(id => id !== userId.toString());
        for (const lId of notifyList) {
-          await Notification.create({
+          // Send notification asynchronously
+          Notification.create({
              user: lId,
              message: `✅ Task "${task.title}" (Nhóm: ${group.name}) đã được kéo sang cột Hoàn thành!`,
-          });
+          }).catch(err => console.error("Notification failed", err));
        }
     }
 
-    return taskRepo.updateById(taskId, { status: newStatus });
+    return updatedTask;
   },
 };
 
